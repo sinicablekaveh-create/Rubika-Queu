@@ -21,7 +21,10 @@ jobs:
         run: |
           set -euo pipefail
           test -s source/Rubika-Queu-v0.8-github-source.zip
-          unzip -o -q source/Rubika-Queu-v0.8-github-source.zip -d .
+          mkdir -p "$RUNNER_TEMP/rubika-src"
+          unzip -o -q source/Rubika-Queu-v0.8-github-source.zip -d "$RUNNER_TEMP/rubika-src"
+          cp -a "$RUNNER_TEMP/rubika-src/app/src/main/java" app/src/main/
+          cp -a "$RUNNER_TEMP/rubika-src/app/src/main/assets" app/src/main/
 
       - name: Verify real application source
         run: |
