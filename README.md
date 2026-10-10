@@ -28,3 +28,10 @@ Application ID: `ir.sinicable.rubikaqueue`, minimum SDK 26, target SDK 34, versi
 Official references:
 - https://rubika.ir/botapi
 - https://rubika.ir/botapi/methods
+
+
+## v1.0: زمان‌بندی و تاریخچهٔ ارسال
+- انتخاب تاریخ و ساعت محلی از بخش فایل و متن برای شروع خودکار صف، به‌همراه امکان زمان‌بندی مجدد.
+- درخواست مجوز SCHEDULE_EXACT_ALARM برای شروع دقیق در پس‌زمینه؛ بازیابی زمان‌بندی بعد از راه‌اندازی مجدد.
+- آرشیو مستقل SQLite برای پیام‌های ثبت‌شده و امکان مشاهدهٔ فهرست، زمان، مخاطب، متن، شناسه پیام، و نوع تأیید؛ دریافت/خواندن پیام از روی ثبت سرور استنباط نمی‌شود.
+- گسترش CSV با sent_at / reviewed_at / scheduled_start_at.
