@@ -17,6 +17,12 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Extract audited application source bundle
+        run: |
+          set -euo pipefail
+          test -s source/Rubika-Queu-v0.8-github-source.zip
+          unzip -o -q source/Rubika-Queu-v0.8-github-source.zip -d .
+
       - name: Verify real application source
         run: |
           set -euo pipefail
