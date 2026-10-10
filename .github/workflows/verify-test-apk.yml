@@ -1,0 +1,42 @@
+name: Verify Dedicated Rubika Test APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'prebuilt/Rubika-Queu-v0.8-test-signed-package.zip'
+      - '.github/workflows/verify-test-apk.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Extract package
+        run: |
+          set -euo pipefail
+          mkdir -p verified
+          unzip -t prebuilt/Rubika-Queu-v0.8-test-signed-package.zip
+          unzip -o -q prebuilt/Rubika-Queu-v0.8-test-signed-package.zip -d verified
+          test -s verified/Rubika-Queu-v0.8-test-signed-final.apk
+      - name: Check APK checksum
+        run: |
+          echo '1edddf64d4ed0e4462e01cc7fb9717d3ce34f999c2be75a4f202cf4dd0e830e0  verified/Rubika-Queu-v0.8-test-signed-final.apk' | sha256sum -c -
+      - name: Android apksigner verification
+        run: |
+          set -euo pipefail
+          APK=verified/Rubika-Queu-v0.8-test-signed-final.apk
+          TOOL="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -x "$TOOL"
+          "$TOOL" verify --verbose --print-certs --min-sdk-version 26 "$APK" | tee signature-result.txt
+          grep -qi '8747838d913e2f0f58dc66e432eb3753bc826e6a3f7e23eaf6bb799cd63af28b' signature-result.txt
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK"
+      - name: Upload verified test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rubika-Queu-v0.8-test-signed-apk
+          path: verified/Rubika-Queu-v0.8-test-signed-final.apk
+          if-no-files-found: error
