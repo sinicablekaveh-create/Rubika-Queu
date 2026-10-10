@@ -1,0 +1,25 @@
+name: Export Android SDK APK signer
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/export-apksigner.yml']
+permissions:
+  contents: read
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copy installed Android SDK apksigner
+        run: |
+          set -euo pipefail
+          path="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner.jar | sort -V | tail -1)"
+          test -s "$path" || { echo "::error::apksigner.jar missing from runner"; exit 1; }
+          mkdir -p output
+          cp "$path" output/apksigner.jar
+      - name: Upload public tool
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-sdk-apksigner-jar
+          path: output/apksigner.jar
+          if-no-files-found: error
