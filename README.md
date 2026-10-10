@@ -35,3 +35,10 @@ Official references:
 - درخواست مجوز SCHEDULE_EXACT_ALARM برای شروع دقیق در پس‌زمینه؛ بازیابی زمان‌بندی بعد از راه‌اندازی مجدد.
 - آرشیو مستقل SQLite برای پیام‌های ثبت‌شده و امکان مشاهدهٔ فهرست، زمان، مخاطب، متن، شناسه پیام، و نوع تأیید؛ دریافت/خواندن پیام از روی ثبت سرور استنباط نمی‌شود.
 - گسترش CSV با sent_at / reviewed_at / scheduled_start_at.
+
+
+## v1.1: File & Text → Personal Account Queue Sender
+
+The send controls remain in the main **فایل و متن پیام** page and use the locally encrypted personal-account session; Bot API stays independent. A per-queue 30–3600 second interval now controls the gap between successive message attempts and is saved in JobStore. Legacy jobs default to 30 seconds. The UI supports setting/changing this interval on queue creation and resume, while the older future-start scheduler stays optional. Live counts and SQLite receipt history distinguish server acknowledgement from actual delivery. Rate errors still trigger backoff and do not bypass provider limits. Use only with recipients who expect and have agreed to messages.
+
+The complete patched Android sources, plus isolated Java interval tests, are in `source/Rubika-Queu-v1.1-personal-queue-source.zip`; the build workflow extracts these before compilation. App versionCode is 11.
