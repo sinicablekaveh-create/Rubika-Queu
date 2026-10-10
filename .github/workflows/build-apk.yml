@@ -22,11 +22,11 @@ jobs:
 
       - name: Build APK
         run: |
-          chmod +x build.sh || true
-          ./build.sh
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rubika-Queu-debug-apk
-          path: '**/*.apk'
+          name: Rubika-Queu-test-signed-apk
+          path: app/build/outputs/apk/**/*.apk
