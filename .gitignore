@@ -1,0 +1,6 @@
+signing/*.p12
+signing/*.jks
+.gradle/
+**/build/
+local.properties
+.idea/

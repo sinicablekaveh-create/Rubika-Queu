@@ -9,31 +9,33 @@ android {
     defaultConfig {
         applicationId 'ir.sinicable.rubikaqueue'
         minSdk 26
-        targetSdk 35
-        versionCode 5
-        versionName '0.5-test'
+        targetSdk 34
+        versionCode 8
+        versionName '0.8-test'
     }
 
     signingConfigs {
-        debug {
-            storeFile file('test-signing.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+        testKey {
+            storeFile rootProject.file('signing/test-signing.p12')
+            storeType 'pkcs12'
+            storePassword System.getenv('RUBIKA_TEST_KEYSTORE_PASSWORD') ?: 'android'
+            keyAlias System.getenv('RUBIKA_TEST_KEY_ALIAS') ?: 'test'
+            keyPassword System.getenv('RUBIKA_TEST_KEY_PASSWORD') ?: 'android'
         }
     }
 
     buildTypes {
         debug {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.testKey
+            minifyEnabled false
         }
         release {
-            signingConfig signingConfigs.debug
             minifyEnabled false
         }
     }
-}
 
-dependencies {
-    implementation 'androidx.appcompat:appcompat:1.7.0'
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
 }
