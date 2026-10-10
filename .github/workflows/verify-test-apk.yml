@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'prebuilt/Rubika-Queu-v1.0-test-signed-package.zip'
+      - 'prebuilt/Rubika-Queu-v1.1-test-signed-package.zip'
       - '.github/workflows/verify-test-apk.yml'
 permissions:
   contents: read
@@ -19,16 +19,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p verified
-          unzip -t prebuilt/Rubika-Queu-v1.0-test-signed-package.zip
-          unzip -o -q prebuilt/Rubika-Queu-v1.0-test-signed-package.zip -d verified
-          test -s verified/Rubika-Queu-v1.0-scheduled-test-signed.apk
+          unzip -t prebuilt/Rubika-Queu-v1.1-test-signed-package.zip
+          unzip -o -q prebuilt/Rubika-Queu-v1.1-test-signed-package.zip -d verified
+          test -s verified/Rubika-Queu-v1.1-test-signed-final.apk
       - name: Check APK checksum
         run: |
-          echo 'efde2e6fd5f9fb946e4bf588b8fe1dfc10a0eba443604911c5825cb7c0813881  verified/Rubika-Queu-v1.0-scheduled-test-signed.apk' | sha256sum -c -
+          echo '6660085664a5d7300c796eafb8476c8e018def9722110700fa2f9327999b8295  verified/Rubika-Queu-v1.1-test-signed-final.apk' | sha256sum -c -
       - name: Android apksigner verification
         run: |
           set -euo pipefail
-          APK=verified/Rubika-Queu-v1.0-scheduled-test-signed.apk
+          APK=verified/Rubika-Queu-v1.1-test-signed-final.apk
           TOOL="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           test -x "$TOOL"
           "$TOOL" verify --verbose --print-certs --min-sdk-version 26 "$APK" | tee signature-result.txt
@@ -37,6 +37,6 @@ jobs:
       - name: Upload verified test APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rubika-Queu-v1.0-scheduled-test-signed-apk
-          path: verified/Rubika-Queu-v1.0-scheduled-test-signed.apk
+          name: Rubika-Queu-v1.1-test-signed-apk
+          path: verified/Rubika-Queu-v1.1-test-signed-final.apk
           if-no-files-found: error
