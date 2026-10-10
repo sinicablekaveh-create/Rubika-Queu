@@ -42,3 +42,13 @@ Official references:
 The send controls remain in the main **فایل و متن پیام** page and use the locally encrypted personal-account session; Bot API stays independent. A per-queue 30–3600 second interval now controls the gap between successive message attempts and is saved in JobStore. Legacy jobs default to 30 seconds. The UI supports setting/changing this interval on queue creation and resume, while the older future-start scheduler stays optional. Live counts and SQLite receipt history distinguish server acknowledgement from actual delivery. Rate errors still trigger backoff and do not bypass provider limits. Use only with recipients who expect and have agreed to messages.
 
 The complete patched Android sources, plus isolated Java interval tests, are in `source/Rubika-Queu-v1.1-personal-queue-source.zip`; the build workflow extracts these before compilation. App versionCode is 11.
+
+## Connection and queue reliability update
+- Java and assets are tracked directly. CI no longer overwrites them from historical source ZIPs.
+- Official links open in the browser, with an error if no browser exists. Browser login remains independent of the queue.
+- Bot token input is excluded from saved view state. Request errors do not expose token-bearing URLs.
+- Eight consecutive rate-limit rejections pause the queue. The row and cooldown remain saved; explicit Resume starts a new bounded cycle. Ambiguous sends still require review.
+- Backoff grows to a hard fifteen-minute maximum. Recipient intervals remain unchanged.
+- CI runs retry-policy regression checks before building.
+
+Validation: local APK build and Java tests were unavailable because this environment lacks Gradle, Android SDK and javac. CI validation is required before merge.
