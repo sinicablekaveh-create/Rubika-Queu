@@ -39,26 +39,28 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android platform
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Install Android platform from runner SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)"
+          test -x "$SDKMANAGER"
+          printf 'y\n' | "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
 
       - name: Setup Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Restore permanent test signing key
+      - name: Restore permanent test signing key if configured
         env:
           TEST_P12_BASE64: ${{ secrets.RUBIKA_TEST_KEYSTORE_BASE64 }}
         run: |
-          test -n "$TEST_P12_BASE64" || {
-            echo "::error::Missing RUBIKA_TEST_KEYSTORE_BASE64 GitHub Actions secret."; exit 1;
-          }
-          mkdir -p signing
-          printf '%s' "$TEST_P12_BASE64" | base64 --decode > signing/test-signing.p12
+          if [ -n "$TEST_P12_BASE64" ]; then
+            mkdir -p signing
+            printf '%s' "$TEST_P12_BASE64" | base64 --decode > signing/test-signing.p12
+          else
+            echo "::warning::Dedicated key is unavailable; this run produces a debug APK which CANNOT update the previous signed test APK."
+          fi
 
       - name: Build signed APK
         env:
@@ -75,11 +77,16 @@ jobs:
           test -s "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
-          cp "$apk" Rubika-Queu-v0.8-test-signed.apk
+          if [ -s signing/test-signing.p12 ]; then
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" | grep -qi '8747838d913e2f0f58dc66e432eb3753bc826e6a3f7e23eaf6bb799cd63af28b'
+            cp "$apk" Rubika-Queu-v0.8-test-signed.apk
+          else
+            cp "$apk" Rubika-Queu-v0.8-debug-NOT-UPDATABLE.apk
+          fi
 
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rubika-Queu-v0.8-test-signed-apk
-          path: Rubika-Queu-v0.8-test-signed.apk
+          name: Rubika-Queu-v0.8-apk
+          path: Rubika-Queu-v0.8-*.apk
           if-no-files-found: error

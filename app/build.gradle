@@ -26,7 +26,9 @@ android {
 
     buildTypes {
         debug {
-            signingConfig signingConfigs.testKey
+            if (rootProject.file('signing/test-signing.p12').exists()) {
+                signingConfig signingConfigs.testKey
+            }
             minifyEnabled false
         }
         release {
