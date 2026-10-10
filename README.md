@@ -1,7 +1,30 @@
-# Rubika-Queu Android APK build
+# Rubika-Queu – Android Message Queue
 
-This repository currently contains the Android CI scaffold. The real Android Java sources from `Rubika-Queue-v0.8-integrated.zip` must be copied to `app/src/main/java/ir/sinicable/rubikaqueue/` before an APK can be produced. CI explicitly rejects a missing source tree to prevent distributing a nonfunctional empty application.
+[![Build Android APK](https://github.com/sinicablekaveh-create/Rubika-Queu/actions/workflows/build-apk.yml/badge.svg)](https://github.com/sinicablekaveh-create/Rubika-Queu/actions/workflows/build-apk.yml)
 
-The APK is signed with the **same existing development test key** (PKCS#12, alias `test`) if provided through GitHub Actions secret `RUBIKA_TEST_KEYSTORE_BASE64`. Do not commit `signing/test-signing.p12` publicly. Retaining the same key, applicationId and incrementing versionCode are required for in-place updates. Optional secrets `RUBIKA_TEST_KEYSTORE_PASSWORD` and `RUBIKA_TEST_KEY_PASSWORD` can override the test key password.
+This Android project contains a private-account queue and independent optional integration with the **publicly documented Rubika Bot API**.
 
-For an end-to-end source import, use the ZIP archive provided in ChatGPT `Rubika-Queu-v0.8-android-gradle-source.zip`. The GitHub workflow will build, verify signature and upload the APK artifact after source and signing secret are supplied.
+## Official Rubika integration (v0.9)
+The main screen includes a button **وب‌سایت رسمی و API بات روبیکا** that opens the optional, non-exported OfficialBotActivity. It can open official web pages in the device's normal browser:
+- https://rubika.ir/home
+- https://web.rubika.ir/
+- https://rubika.ir/botapi
+
+The independent `OfficialBotApi` client implements documented HTTPS POST requests:
+- `https://botapi.rubika.ir/v3/{token}/getMe` – identify the supplied bot
+- `https://botapi.rubika.ir/v3/{token}/sendMessage` – user-confirmed single test message to an allowed chat
+
+Get your **own bot token** from BotFather. The bot token is kept only in the transient input field and is never committed, logged to CI, or written into the existing queue. One test message requires explicit confirmation and a 30-second local cooldown. No unattended bulk sending via the Bot API is implemented. The existing personal-account queue and its retry logic remain unchanged.
+
+The **public site** does not publish the backend or source of the private Rubika Android app. No proprietary source, bundled website JavaScript, or undocumented browser endpoints are copied into the APK. The public website's URLs and Bot API documentation are used as integration references.
+
+## Build and signing
+The complete source bundle is archived as `source/Rubika-Queu-v0.9-official-web-integration-source.zip` and extracted by `.github/workflows/build-apk.yml`. The main branch's manifest and Gradle configuration govern the resulting build. GitHub Actions runs Android Gradle, `apksigner verify`, `zipalign`, and uploads a built APK as an Actions artifact.
+
+Without a custom signing secret, GitHub Actions uses a fresh runner debug keystore: the resulting artifact has a **different signing identity** and **cannot upgrade** an already installed Rubika-Queu APK signed with the permanent test certificate. For a safely updatable APK, configure GitHub Actions secret `RUBIKA_TEST_KEYSTORE_BASE64` with the original PKCS#12 keystore (alias `test`) and retain its passwords via `RUBIKA_TEST_KEYSTORE_PASSWORD` and `RUBIKA_TEST_KEY_PASSWORD`. Never commit a signing keystore or token. The workflow checks the expected certificate SHA-256 digest when the original key is configured.
+
+Application ID: `ir.sinicable.rubikaqueue`, minimum SDK 26, target SDK 34, versionCode 9.
+
+Official references:
+- https://rubika.ir/botapi
+- https://rubika.ir/botapi/methods

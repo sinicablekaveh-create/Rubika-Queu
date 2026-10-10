@@ -10,8 +10,8 @@ android {
         applicationId 'ir.sinicable.rubikaqueue'
         minSdk 26
         targetSdk 34
-        versionCode 8
-        versionName '0.8-test'
+        versionCode 9
+        versionName '0.9-official-api-test'
     }
 
     signingConfigs {
