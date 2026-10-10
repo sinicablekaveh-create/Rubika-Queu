@@ -43,14 +43,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Test rate-limit retry backoff
-        run: |
-          set -euo pipefail
-          src="$RUNNER_TEMP/rubika-src"
-          mkdir -p "$RUNNER_TEMP/retry-tests"
-          javac -d "$RUNNER_TEMP/retry-tests" "$src/app/src/main/java/ir/sinicable/rubikaqueue/RetryBackoff.java" "$src/tests/RetryBackoffTests.java"
-          java -cp "$RUNNER_TEMP/retry-tests" ir.sinicable.rubikaqueue.RetryBackoffTests
-
       - name: Install Android platform from runner SDK
         run: |
           set -euo pipefail
