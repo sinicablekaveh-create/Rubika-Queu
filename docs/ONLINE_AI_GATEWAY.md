@@ -50,6 +50,53 @@ is separate from a ChatGPT plan.
   4,200 characters; HTTP redirects, non-200 responses, and truncated outputs
   fail closed. No autonomous application changes or message sends are allowed.
 
+## Online development, web research and GitHub integration
+
+The development panel uses the same HTTPS **gateway origin** as drafting but a
+**separate** `DEV_GATEWAY_TOKEN`. Chat/research, workflow dispatch, and workflow
+status are handled respectively by:
+`POST /v1/dev/chat`, `POST /v1/dev/propose`, `GET /v1/dev/status`.
+
+The gateway example uses the OpenAI **Responses API** with optional
+`web_search` for researching programming questions. Its result is advice:
+it does **not** run code on the phone or copy a ChatGPT web session.
+Development proposals use a GitHub fine-grained token held on the server,
+which dispatches `.github/workflows/ai-development.yml` on `main`; this
+workflow can open a **draft PR**, but does not merge or publish automatically.
+
+### Required owner-operated secrets / configuration
+
+Deploy the Worker example to a trusted HTTPS host. Configure secrets
+`OPENAI_API_KEY`, `GATEWAY_TOKEN`, `DEV_GATEWAY_TOKEN`, and
+`GITHUB_WORKFLOW_TOKEN` in the deployment's secret manager, **never**
+in Android source or GitHub commits. Set `GITHUB_REPOSITORY` to
+`sinicablekaveh-create/Rubika-Queu`. The GitHub credential should be scoped
+to this single repository with **Actions: write** permission only. Configure
+`OPENAI_RESEARCH_MODEL` to an available model that supports Responses web
+search; check model availability and API quota before use.
+
+Also configure the repository's GitHub Actions secret `OPENAI_API_KEY` for
+the read-only Codex proposal workflow, and enable the repository option for
+Actions to create pull requests. These two setup steps cannot be completed by
+committing source code. See `docs/AUTOMATED_DEVELOPMENT.md` on PR #20.
+
+In Android, supply the gateway host and its relevant token. Each remote
+research and GitHub proposal operation requires an explicit confirmation.
+Replies remain in the assistant view; they never replace drafts or send
+Rubika messages automatically.
+
+### What is not connected
+
+This is **not** direct control of `chatgpt.com` or access to ChatGPT saved
+chats, account plugins, connected services, or the entire phone. Those
+systems require their **own** supported OAuth/connector APIs and independent
+authorization. Likewise, no Supabase instance or remote computer is
+implicitly provisioned by installing the APK.
+
+Production gateways need per-user authentication, rate and cost limits,
+audit logs that omit secrets, replay prevention, and explicit connector
+allowlists. A single shared development token is only a reference design.
+
 ## Developer validation
 The build overlay installer `scripts/add-ai-assistant.py` now copies
 `AiOnlineClient.java` along with the existing assistant classes.
