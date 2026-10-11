@@ -71,6 +71,17 @@ public final class DiscoveryRankingTests {
                     "نردبان کابل", "", true) > 0);
         check(DiscoveryRanking.scoreWithSuggestions(typed, proposed,
                     "آشپزی", "", true) == 0);
+        // The discovery engine matches raw phrases: punctuation variants must survive.
+        check(DiscoveryRanking.terms("کابل-برق، کابل برق").length == 2);
+        check(DiscoveryRanking.terms("سینی-کابل، سینی کابل").length == 2);
+        String longTopic = "برق ".repeat(25).trim();
+        check(longTopic.length() > 80 && longTopic.length() <= 300);
+        check(DiscoveryRanking.combine(new String[]{longTopic}, new String[0], 12).length == 1);
+        check(DiscoveryRanking.combine(new String[]{longTopic}, new String[0], 12)[0].equals(longTopic));
+        String[] eight = DiscoveryRanking.terms("برق، کابل، لدر، تابلو، تأسیسات، صنعتی، ساختمان، پیمانکار");
+        check(eight.length == 8);
+        check(DiscoveryRanking.combine(eight,
+                new String[]{"پروژه", "انرژی", "تولید", "الکتریکی"}, 12).length == 12);
         System.out.println("DiscoveryRankingTests: " + count + " checks passed");
     }
 }
