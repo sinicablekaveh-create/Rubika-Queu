@@ -21,3 +21,10 @@ Searches are started explicitly by the user; the application automatically explo
 ## Search relevance v2
 
 Typed topics are normalized and deduplicated by their Persian/Arabic spelling and punctuation before search. The existing user-triggered flow still limits typed phrases to eight and retains a maximum of 12 distinct combined phrases when an optional AI server is used. Up to four **valid distinct** Ollama suggestions are included; invalid, repeated or malformed items do not use a suggestion slot. User-topic matches rank above matches found only through AI suggestions. The results screen explicitly labels direct, suggested and unmatched results, along with a count of results having a topical match. AI phrases expand recall, but all group identities continue to come from the real discovery engine.
+
+## Relevance v2 review fixes
+
+- Search de-duplicates equivalent Persian/Arabic spellings but preserves punctuation variants when the underlying discovery engine compares raw text. A valid 81–300 character single user topic is not dropped by the 80-character AI suggestion cap.
+- The original query echoed by Ollama never consumes one of the 12 search slots; up to four distinct suggestions can be searched with eight typed topics.
+- Schema v2 upgrades the existing local cache without deleting rows and saves accepted AI search suggestions alongside each account's search history. Local results use the requested query's saved suggestions or the latest saved query if the input is blank, retaining their previous relevance labels without contacting AI again.
+- When a public link is associated with two different known GUIDs, a new link-only observation is ambiguous and is not assigned to either group's saved record. Search history still records the attempt.
