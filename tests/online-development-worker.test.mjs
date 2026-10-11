@@ -82,8 +82,8 @@ try {
 
   const legacy = await worker.fetch(request('/v1/chat/completions',
     { messages:[{role:'system',content:'edit'},{role:'user',content:'متن'}], stream:false }), env);
-  // Legacy handler is covered by existing source tests; no matching provider stub here.
-  assert.ok([200,502].includes(legacy.status));
+  // Legacy text-drafting route still responds independently of the new dev token.
+  assert.equal(legacy.status,503);
 } finally {
   globalThis.fetch = originalFetch;
 }
