@@ -19,6 +19,15 @@ public final class DiscoveryRankingTests {
             try { DiscoveryRanking.query(q); throw new AssertionError("accepted invalid query"); }
             catch (IllegalArgumentException expected) { count++; }
         }
+        String[] topics = DiscoveryRanking.terms("برق صنعتی، سینی کابل، نردبان کابل");
+        check(topics.length == 3);
+        check(topics[0].equals("برق صنعتی"));
+        check(topics[2].equals("نردبان کابل"));
+        check(DiscoveryRanking.scoreAny(topics, "فروش سینی کابل", "", false)
+                > DiscoveryRanking.scoreAny(topics, "آشپزی", "", false));
+        check(DiscoveryRanking.terms("برق ساختمان").length == 1);
+        check(DiscoveryRanking.terms("برق،برق، کابل").length == 2);
+        check(DiscoveryRanking.scoreAny(null, "برق", "", true) == 0);
         System.out.println("DiscoveryRankingTests: " + count + " checks passed");
     }
 }

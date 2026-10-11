@@ -16,6 +16,32 @@ public final class DiscoveryRanking {
         if (q.length() < 2 || q.length() > 300) throw new IllegalArgumentException("عبارت باید بین ۲ و ۳۰۰ نویسه باشد");
         return q;
     }
+    /** Split a Persian or English topic list into focused searches, without inventing groups. */
+    public static String[] terms(String query) {
+        String original = query(query);
+        java.util.LinkedHashSet<String> terms = new java.util.LinkedHashSet<>();
+        String[] parts = original.split("[،,؛;\\n]+");
+        if (parts.length > 1) {
+            for (String part : parts) {
+                String candidate = part.trim().replaceAll("\\s+", " ");
+                if (candidate.length() >= 2 && candidate.length() <= 80) {
+                    terms.add(candidate);
+                    if (terms.size() >= 8) break;
+                }
+            }
+        }
+        if (terms.isEmpty()) terms.add(original);
+        return terms.toArray(new String[0]);
+    }
+
+    /** Rank by the strongest matching search topic, not an entire comma-separated list. */
+    public static int scoreAny(String[] terms, String name, String keyword, boolean identified) {
+        int best = 0;
+        if (terms == null) return best;
+        for (String term : terms) best = Math.max(best, score(term, name, keyword, identified));
+        return best;
+    }
+
     public static int score(String query, String name, String keyword, boolean identified) {
         String q = normalize(query), n = normalize(name), k = normalize(keyword);
         if (q.isEmpty()) return 0;
