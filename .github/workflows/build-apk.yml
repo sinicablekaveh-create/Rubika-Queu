@@ -142,14 +142,14 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
           if [ -s signing/test-signing.p12 ]; then
             "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" | grep -qi '8747838d913e2f0f58dc66e432eb3753bc826e6a3f7e23eaf6bb799cd63af28b'
-            cp "$apk" Rubika-Queu-v1.3-test-signed.apk
+            cp "$apk" Rubika-Queu-v1.3.1-test-signed.apk
           else
-            cp "$apk" Rubika-Queu-v1.3-debug-NOT-UPDATABLE.apk
+            cp "$apk" Rubika-Queu-v1.3.1-debug-NOT-UPDATABLE.apk
           fi
 
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rubika-Queu-v1.3-apk
-          path: Rubika-Queu-v1.3-*.apk
+          name: Rubika-Queu-v1.3.1-apk
+          path: Rubika-Queu-v1.3.1-*.apk
           if-no-files-found: error

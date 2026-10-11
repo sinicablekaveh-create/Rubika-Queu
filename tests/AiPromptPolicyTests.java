@@ -26,6 +26,12 @@ public final class AiPromptPolicyTests {
         rejects(() -> AiPromptPolicy.endpoint("https://host.example/?secret=1"));
         rejects(() -> AiPromptPolicy.endpoint("https://host.example/#section"));
         rejects(() -> AiPromptPolicy.endpoint(null));
+        check("پاسخ آماده".equals(AiPromptPolicy.suggestion("  پاسخ آماده  ")));
+        rejects(() -> AiPromptPolicy.suggestion(null));
+        rejects(() -> AiPromptPolicy.suggestion(""));
+        rejects(() -> AiPromptPolicy.suggestion("   "));
+        check(AiPromptPolicy.suggestion("x".repeat(4200)).length() == 4200);
+        rejects(() -> AiPromptPolicy.suggestion("x".repeat(4201)));
         System.out.println("PASS AiPromptPolicyTests " + count + " assertions");
     }
 }
