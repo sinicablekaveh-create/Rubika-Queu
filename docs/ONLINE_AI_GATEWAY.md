@@ -59,3 +59,59 @@ and rejection of ChatGPT/provider domains and incomplete model replies. Normal C
 Gradle `lintDebug`, `assembleDebug`, `apksigner` and `zipalign`.
 The existing dedicated APK signing key is still required for an upgrade
 of an installed differently signed APK.
+
+## Online AI development chat, web research and GitHub proposals
+
+After deploying the trusted HTTPS gateway, the Android AI assistant also exposes
+**گفتگو با AI و تحقیق در وب**, **ثبت درخواست توسعه خودکار در GitHub**, and
+**بررسی آخرین وضعیت توسعه در GitHub**. These controls use the same
+`onlineGateway` origin entered above and a **separate** `DEV_GATEWAY_TOKEN`
+credential entered into the developer input. The user must approve each research
+submission and each development workflow dispatch. No message queue action is
+attached to these buttons.
+
+Additional server environment configuration:
+
+- `DEV_GATEWAY_TOKEN` (secret): a separate long random access token, at least
+  24 characters, unrelated to the drafting `GATEWAY_TOKEN` and the OpenAI key.
+  Use a short-lived scoped token and appropriate rate limiting in production.
+- `OPENAI_API_KEY` (secret): existing provider API key stored **only** in the
+  HTTPS gateway. The developer chat uses the official Responses API with
+  `web_search` for up-to-date publicly available information.
+- `OPENAI_RESEARCH_MODEL` (optional): model supported by the Responses API
+  and the `web_search` tool; the example defaults to `gpt-5.4`.
+- `GITHUB_REPOSITORY` (non-secret): must be exactly
+  `sinicablekaveh-create/Rubika-Queu`.
+- `GITHUB_WORKFLOW_TOKEN` (secret): a GitHub App installation token or
+  fine-grained GitHub token scoped only to **Actions: write** on that repository.
+  It must stay on the gateway; it is never entered in the Android application.
+
+Before using the **development request** button, review and merge PR #20
+(`feat/supervised-ai-development-actions`) so
+`.github/workflows/ai-development.yml` exists on `main`; enable Actions to
+create PRs and provision the GitHub Actions secret `OPENAI_API_KEY`.
+That Actions workflow generates a *draft* PR only. It cannot merge it, bypass
+review, install the APK, or grant access to the phone. It might incur API/CI
+costs. Check its run link and CI status before deciding to merge.
+
+Developer gateway endpoints:
+
+| Path | Method | Action |
+| --- | --- | --- |
+| `/v1/dev/chat` | POST | Chat with an online development adviser. `use_web: true` enables OpenAI web search. |
+| `/v1/dev/propose` | POST | Dispatch only the preconfigured `ai-development.yml` on `main` with a bounded manual task. |
+| `/v1/dev/status` | GET | Read status of the most recent manually-dispatched development workflow; may be someone else's run if the repository is shared. |
+
+These endpoints **do not** sync ChatGPT account memories, connected ChatGPT
+plugins, private files, calendar, Google credentials or phone data. Each additional
+integration (GitHub, Firecrawl, Exa, Linear, Canva, Remote Desktop, MCP providers)
+requires its own authenticated connection and separate narrowly scoped tool access.
+To connect further integrations, use an owner-controlled backend with OAuth or
+remote MCP servers and approval policies; do not copy browser session cookies or
+API keys to Android. Google/web research uses a supported public web-search tool,
+not unrestricted access to a personal Google account.
+
+The gateway example is not deployed by this repository. The backend is a
+starting point, not a production identity system: add real per-user authentication,
+abuse prevention, budgets, audit logs that avoid sensitive content, and
+approval enforcement before exposing it beyond trusted testers.
