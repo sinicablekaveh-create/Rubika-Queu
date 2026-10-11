@@ -44,6 +44,15 @@ jobs:
           set -euo pipefail
           python3 scripts/add-ai-assistant.py
 
+      - name: Install additive AI discovery engine
+        run: python3 scripts/add-ai-discovery.py
+
+      - name: Test smart discovery ranking
+        run: |
+          mkdir -p "$RUNNER_TEMP/discovery-tests"
+          javac -d "$RUNNER_TEMP/discovery-tests" overrides/ai-discovery/DiscoveryRanking.java tests/DiscoveryRankingTests.java
+          java -cp "$RUNNER_TEMP/discovery-tests" ir.sinicable.rubikaqueue.DiscoveryRankingTests
+
       - name: Fix legacy orientation constants for Android lint
         run: python3 scripts/fix-mainactivity-orientation.py
 
@@ -110,6 +119,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+
+      - name: Test discovery SQLite and HTTPS client
+        run: gradle --no-daemon --max-workers=4 -p tests/discovery-runtime test
 
       - name: Restore permanent test signing key if configured
         env:
