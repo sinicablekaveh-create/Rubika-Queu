@@ -35,4 +35,32 @@ public class StoreTest {
    assertEquals(0,s.groups("a").length());
   }
  }
+ @Test public void guidAndLinkAliasesDoNotDuplicateGroups() throws Exception {
+  android.content.Context c=RuntimeEnvironment.getApplication(); c.deleteDatabase("ai-discovery.db");
+  String link="https://rubika.ir/joinc/example";
+  try(AiDiscoveryStore s=new AiDiscoveryStore(c)) {
+   s.save("a","link-only",new JSONArray().put(new JSONObject().put("link",link).put("name","Cable")));
+   s.save("a","resolved",new JSONArray().put(new JSONObject().put("link",link).put("guid","guid-cable").put("name","Cable Updated")));
+   assertEquals(1,s.groups("a").length());
+   s.save("a","guid-only",new JSONArray().put(new JSONObject().put("guid","guid-cable").put("name","Newest")));
+   assertEquals(1,s.groups("a").length());
+   assertEquals(link,s.groups("a").getJSONObject(0).getString("link"));
+   s.save("a","link-again",new JSONArray().put(new JSONObject().put("link",link).put("name","Cable Revisited")));
+   assertEquals(1,s.groups("a").length());
+   assertEquals("guid-cable",s.groups("a").getJSONObject(0).getString("guid"));
+   s.save("b","isolated",new JSONArray().put(new JSONObject().put("link",link).put("name","Other")));
+   assertEquals(1,s.groups("b").length());
+   assertEquals(1,s.groups("a").length());
+  }
+ }
+ @Test public void matchingAliasesWithinSingleBatchCoalesce() throws Exception {
+  android.content.Context c=RuntimeEnvironment.getApplication(); c.deleteDatabase("ai-discovery.db");
+  try(AiDiscoveryStore s=new AiDiscoveryStore(c)) {
+   s.save("a","topic",new JSONArray()
+       .put(new JSONObject().put("link","https://example.org/group").put("name","Before"))
+       .put(new JSONObject().put("link","https://example.org/group").put("guid","g2").put("name","After")));
+   assertEquals(1,s.groups("a").length());
+   assertEquals("After",s.groups("a").getJSONObject(0).getString("name"));
+  }
+ }
 }
