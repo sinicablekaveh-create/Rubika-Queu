@@ -21,8 +21,12 @@ public final class AiOnlineClient {
 
     static String gatewayUrl(String root) {
         String endpoint = AiPromptPolicy.endpoint(root);
-        if ("api.openai.com".equalsIgnoreCase(URI.create(endpoint).getHost())) {
-            throw new IllegalArgumentException("کلید OpenAI نباید در برنامه استفاده شود؛ سرور واسط خودتان را وارد کنید");
+        String host = URI.create(endpoint).getHost().toLowerCase(java.util.Locale.ROOT);
+        if ("api.openai.com".equals(host) || "openai.com".equals(host)
+                || host.endsWith(".openai.com") || "chatgpt.com".equals(host)
+                || host.endsWith(".chatgpt.com")) {
+            throw new IllegalArgumentException(
+                    "وب‌سایت ChatGPT یا API ارائه‌دهنده، سرور واسط برنامه نیست؛ آدرس HTTPS واسط اختصاصی را وارد کنید");
         }
         return endpoint + "/v1/chat/completions";
     }
@@ -54,8 +58,9 @@ public final class AiOnlineClient {
         JSONArray choices = payload.optJSONArray("choices");
         if (choices == null || choices.length() == 0) throw new IOException("پاسخ مدل معتبر نیست");
         JSONObject first = choices.getJSONObject(0);
-        if ("length".equals(first.optString("finish_reason"))) {
-            throw new IOException("پاسخ مدل ناقص است");
+        String finishReason = first.optString("finish_reason", "");
+        if (!finishReason.isEmpty() && !"stop".equals(finishReason)) {
+            throw new IOException("پاسخ مدل کامل یا قابل استفاده نیست");
         }
         JSONObject message = first.optJSONObject("message");
         if (message == null || !(message.opt("content") instanceof String)) {
