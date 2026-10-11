@@ -81,4 +81,66 @@ public class StoreTest {
   }
  }
 
+ @Test public void ambiguousLinkOnlyResultCannotOverwriteDistinctGuidGroups() throws Exception {
+  android.content.Context context=RuntimeEnvironment.getApplication();
+  context.deleteDatabase("ai-discovery.db");
+  String link="https://rubika.ir/joing/reused";
+  try(AiDiscoveryStore store=new AiDiscoveryStore(context)) {
+   store.save("account","first",new JSONArray().put(
+       new JSONObject().put("guid","group-1").put("link",link).put("name","Owner One")));
+   store.save("account","second",new JSONArray().put(
+       new JSONObject().put("guid","group-2").put("link",link).put("name","Owner Two")));
+   store.save("account","ambiguous",new JSONArray().put(
+       new JSONObject().put("link",link).put("name","Unverified Name")));
+   JSONArray groups=store.groups("account");
+   assertEquals(2,groups.length());
+   java.util.Set<String> names=new java.util.HashSet<>();
+   for(int i=0;i<groups.length();i++) names.add(groups.getJSONObject(i).getString("name"));
+   assertTrue(names.contains("Owner One"));
+   assertTrue(names.contains("Owner Two"));
+   assertFalse(names.contains("Unverified Name"));
+   assertTrue(store.history("account").contains("ambiguous"));
+  }
+ }
+ @Test public void suggestedTermsPersistPerAccountAndQuery() throws Exception {
+  android.content.Context context=RuntimeEnvironment.getApplication();
+  context.deleteDatabase("ai-discovery.db");
+  try(AiDiscoveryStore store=new AiDiscoveryStore(context)) {
+   store.save("a","سینی کابل",new JSONArray(),new String[]{"لدر کابل","نردبان کابل"});
+   store.save("b","سینی کابل",new JSONArray(),new String[]{"برق صنعتی"});
+   store.save("a","تابلو برق",new JSONArray(),new String[]{"پیمانکار برق"});
+  }
+  try(AiDiscoveryStore reopened=new AiDiscoveryStore(context)) {
+   AiDiscoveryStore.SearchContext match=reopened.searchContext("a","سینی کابل");
+   assertEquals("سینی کابل",match.query);
+   assertArrayEquals(new String[]{"لدر کابل","نردبان کابل"},match.suggestions);
+   assertArrayEquals(new String[]{"برق صنعتی"},
+       reopened.searchContext("b","سینی کابل").suggestions);
+   assertEquals("تابلو برق",reopened.searchContext("a","").query);
+   assertArrayEquals(new String[]{"پیمانکار برق"},
+       reopened.searchContext("a","").suggestions);
+   assertEquals(0,reopened.searchContext("a","missing").suggestions.length);
+  }
+ }
+ @Test public void legacyDatabaseMigrationKeepsHistoryAndGroups() throws Exception {
+  android.content.Context context=RuntimeEnvironment.getApplication();
+  context.deleteDatabase("ai-discovery.db");
+  android.database.sqlite.SQLiteDatabase db=context.openOrCreateDatabase(
+      "ai-discovery.db",android.content.Context.MODE_PRIVATE,null);
+  db.execSQL("CREATE TABLE groups_cache(owner TEXT NOT NULL, identity TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(owner,identity))");
+  db.execSQL("CREATE TABLE searches(id INTEGER PRIMARY KEY, owner TEXT NOT NULL, query TEXT NOT NULL, searched_at INTEGER NOT NULL, result_count INTEGER NOT NULL)");
+  db.execSQL("INSERT INTO searches(owner,query,searched_at,result_count) VALUES('a','old',100,1)");
+  db.execSQL("INSERT INTO groups_cache(owner,identity,data) VALUES('a','guid-old','{\"guid\":\"guid-old\",\"name\":\"Legacy\"}')");
+  db.setVersion(1);
+  db.close();
+  try(AiDiscoveryStore store=new AiDiscoveryStore(context)) {
+   assertEquals(1,store.groups("a").length());
+   assertTrue(store.history("a").contains("old"));
+   assertEquals("old",store.searchContext("a","").query);
+   assertEquals(0,store.searchContext("a","").suggestions.length);
+   store.save("a","new",new JSONArray(),new String[]{"لدر کابل"});
+   assertArrayEquals(new String[]{"لدر کابل"},store.searchContext("a","").suggestions);
+  }
+ }
+
 }
