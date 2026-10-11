@@ -46,6 +46,10 @@ public final class AiDiscoveryStore extends SQLiteOpenHelper implements AutoClos
                     JSONObject previous = row.getValue();
                     String previousGuid = previous.optString("guid").trim();
                     String previousLink = previous.optString("link").trim();
+                    // Different identified GUIDs cannot be silently fused merely
+                    // because a public link has been reused or changed ownership.
+                    if (!guid.isEmpty() && !previousGuid.isEmpty()
+                            && !guid.equals(previousGuid)) continue;
                     if ((!guid.isEmpty() && guid.equals(previousGuid))
                             || (!link.isEmpty() && link.equals(previousLink))
                             || (!guid.isEmpty() && guid.equals(row.getKey()))
