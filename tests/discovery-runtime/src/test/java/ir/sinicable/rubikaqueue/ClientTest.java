@@ -38,6 +38,25 @@ public class ClientTest {
   try { AiDiscoveryClient.expand("http://ai.example.com","model","power"); fail(); }
   catch(IllegalArgumentException expected) { }
  }
+ @Test public void skipsInvalidAndPersianDuplicatesWithoutConsumingSlots() throws Exception {
+  org.json.JSONArray suggestions=new org.json.JSONArray()
+      .put(7).put("x").put("tools").put("سيني كابل")
+      .put("سینی کابل").put("https://example.org/unsafe")
+      .put("first").put("second").put("third");
+  body=new org.json.JSONObject().put("response",
+      new org.json.JSONObject().put("terms",suggestions).toString()).toString();
+  assertArrayEquals(new String[]{"برق","tools","سيني كابل","first","second"},
+      AiDiscoveryClient.expand("https://ai.example.com","model","برق"));
+ }
+ @Test public void queryIsKeptWhenSuggestionsAreInvalid() throws Exception {
+  org.json.JSONArray suggestions=new org.json.JSONArray()
+      .put("x").put("https://fake.example").put("برق")
+      .put("برق\nغیرمعتبر");
+  body=new org.json.JSONObject().put("response",
+      new org.json.JSONObject().put("terms",suggestions).toString()).toString();
+  assertArrayEquals(new String[]{"برق"},
+      AiDiscoveryClient.expand("https://ai.example.com","model","برق"));
+ }
  static class Fake extends HttpsURLConnection {
   final ByteArrayOutputStream output=new ByteArrayOutputStream(); boolean closed;
   Fake(URL url) { super(url); }
