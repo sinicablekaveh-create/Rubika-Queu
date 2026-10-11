@@ -10,6 +10,9 @@ import org.json.JSONObject;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Map;
 
 /** Independent account-scoped cache; never changes the queue or legacy discovery store. */
 public final class AiDiscoveryStore extends SQLiteOpenHelper implements AutoCloseable {
@@ -25,14 +28,48 @@ public final class AiDiscoveryStore extends SQLiteOpenHelper implements AutoClos
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {
+            // Match both aliases before saving. A group may first be discovered by link
+            // and later by GUID (or the reverse); replacing on a single key duplicates it.
+            Map<String, JSONObject> known = new LinkedHashMap<>();
+            try (Cursor c = db.rawQuery(
+                    "SELECT identity,data FROM groups_cache WHERE owner=?", new String[]{owner})) {
+                while (c.moveToNext()) known.put(c.getString(0), new JSONObject(c.getString(1)));
+            }
             for (int i = 0; i < groups.length(); i++) {
-                JSONObject g = groups.getJSONObject(i);
-                String identity = g.optString("guid");
-                if (identity.isEmpty()) identity = g.optString("link");
-                if (identity.isEmpty()) continue;
+                JSONObject incoming = groups.getJSONObject(i);
+                String guid = incoming.optString("guid").trim();
+                String link = incoming.optString("link").trim();
+                if (guid.isEmpty() && link.isEmpty()) continue;
+                JSONObject merged = new JSONObject(incoming.toString());
+                ArrayList<String> stale = new ArrayList<>();
+                for (Map.Entry<String, JSONObject> row : known.entrySet()) {
+                    JSONObject previous = row.getValue();
+                    String previousGuid = previous.optString("guid").trim();
+                    String previousLink = previous.optString("link").trim();
+                    if ((!guid.isEmpty() && guid.equals(previousGuid))
+                            || (!link.isEmpty() && link.equals(previousLink))
+                            || (!guid.isEmpty() && guid.equals(row.getKey()))
+                            || (!link.isEmpty() && link.equals(row.getKey()))) {
+                        stale.add(row.getKey());
+                        if (guid.isEmpty() && !previousGuid.isEmpty()) {
+                            guid = previousGuid;
+                            merged.put("guid", guid);
+                        }
+                        if (link.isEmpty() && !previousLink.isEmpty()) {
+                            link = previousLink;
+                            merged.put("link", link);
+                        }
+                    }
+                }
+                for (String identity : stale) {
+                    db.delete("groups_cache", "owner=? AND identity=?", new String[]{owner, identity});
+                    known.remove(identity);
+                }
+                String identity = guid.isEmpty() ? link : guid;
                 ContentValues v = new ContentValues();
-                v.put("owner", owner); v.put("identity", identity); v.put("data", g.toString());
+                v.put("owner", owner); v.put("identity", identity); v.put("data", merged.toString());
                 db.insertWithOnConflict("groups_cache", null, v, SQLiteDatabase.CONFLICT_REPLACE);
+                known.put(identity, merged);
             }
             ContentValues h = new ContentValues();
             h.put("owner", owner); h.put("query", query); h.put("searched_at", System.currentTimeMillis()); h.put("result_count", groups.length());
