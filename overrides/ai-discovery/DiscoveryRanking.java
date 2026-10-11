@@ -34,7 +34,8 @@ public final class DiscoveryRanking {
         String original = query(query);
         String[] parts = original.split("[،,؛;\\n]+");
         if (parts.length == 1) return new String[]{original};
-        return combine(new String[0], parts, 8);
+        String[] focused = combine(new String[0], parts, 8);
+        return focused.length == 0 ? new String[]{original} : focused;
     }
 
     /** Stable bounded union of typed and AI-suggested terms. */
