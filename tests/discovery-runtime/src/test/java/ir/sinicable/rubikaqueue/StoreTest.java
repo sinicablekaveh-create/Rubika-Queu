@@ -63,4 +63,22 @@ public class StoreTest {
    assertEquals("After",s.groups("a").getJSONObject(0).getString("name"));
   }
  }
+ @Test public void distinctGuidGroupsMustNotMergeWhenLinksMatch() throws Exception {
+  android.content.Context context=RuntimeEnvironment.getApplication();
+  context.deleteDatabase("ai-discovery.db");
+  String link="https://rubika.ir/joinc/reused";
+  try(AiDiscoveryStore store=new AiDiscoveryStore(context)) {
+   store.save("account","first",new JSONArray().put(
+       new JSONObject().put("guid","group-1").put("link",link).put("name","First")));
+   store.save("account","second",new JSONArray().put(
+       new JSONObject().put("guid","group-2").put("link",link).put("name","Second")));
+   JSONArray actual=store.groups("account");
+   assertEquals(2,actual.length());
+   java.util.Set<String> identifiers=new java.util.HashSet<>();
+   for(int i=0;i<actual.length();i++) identifiers.add(actual.getJSONObject(i).getString("guid"));
+   assertTrue(identifiers.contains("group-1"));
+   assertTrue(identifiers.contains("group-2"));
+  }
+ }
+
 }
