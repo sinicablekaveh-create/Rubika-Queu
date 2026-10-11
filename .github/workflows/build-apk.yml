@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
@@ -12,6 +13,9 @@ permissions:
 
 jobs:
   build:
+    # Draft proposals contain untrusted code. Do not run the secret-bearing
+    # Android build workflow until a maintainer marks the PR ready for review.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
