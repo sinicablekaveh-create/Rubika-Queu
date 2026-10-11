@@ -8,7 +8,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 
 /** Ollama-compatible HTTPS query expansion. No account/session data leaves this client. */
 public final class AiDiscoveryClient {
@@ -35,14 +35,22 @@ public final class AiDiscoveryClient {
                 }
             }
             JSONArray terms = new JSONObject(new JSONObject(data.toString("UTF-8")).getString("response")).getJSONArray("terms");
-            LinkedHashSet<String> result = new LinkedHashSet<>(); result.add(q);
-            for (int i = 0; i < Math.min(terms.length(), 4); i++) {
+            LinkedHashMap<String, String> unique = new LinkedHashMap<>();
+            unique.put(DiscoveryRanking.normalize(q), q);
+            int accepted = 0;
+            // Skip invalid or duplicate suggestions without consuming the four slots.
+            for (int i = 0; i < Math.min(terms.length(), 64) && accepted < 4; i++) {
                 Object term = terms.get(i);
                 if (!(term instanceof String)) continue;
                 String text = ((String) term).trim();
-                if (text.length() >= 2 && text.length() <= 80 && !text.contains("\n") && !text.contains("://")) result.add(text);
+                String key = DiscoveryRanking.normalize(text);
+                if (text.length() < 2 || text.length() > 80 || key.length() < 2
+                        || text.contains("\n") || text.contains("\r")
+                        || text.contains("://") || unique.containsKey(key)) continue;
+                unique.put(key, text);
+                accepted++;
             }
-            return result.toArray(new String[0]);
+            return unique.values().toArray(new String[0]);
         } finally { c.disconnect(); }
     }
 }
