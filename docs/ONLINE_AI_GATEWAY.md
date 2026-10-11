@@ -32,8 +32,10 @@ is separate from a ChatGPT plan.
 ## Security model
 - TLS certificate and hostname checks are performed by Android; plain HTTP
   and redirects are disallowed.
-- Direct `https://api.openai.com` as an Android endpoint is rejected to avoid
-  encouraging provider keys in clients; provider credentials remain server-side.
+- Direct provider domains (`openai.com` and subdomains) and `chatgpt.com`
+  and its subdomains are rejected as Android gateway endpoints. Neither the
+  ChatGPT website nor a provider API host is a user-owned gateway. Provider
+  credentials remain on the server.
 - Gateway token is entered per session, never committed, logged or stored by
   the app; it can be stolen from a compromised device, so use short-lived
   scoped credentials in production. The example Worker uses a shared token
@@ -53,7 +55,7 @@ The build overlay installer `scripts/add-ai-assistant.py` now copies
 `AiOnlineClient.java` along with the existing assistant classes.
 `tests/discovery-runtime/src/test/java/.../OnlineClientTest.java` checks
 request boundaries, malformed replies, HTTPS-only endpoints, token checks,
-and rejection of direct provider API endpoints. Normal CI uses Java tests,
+and rejection of ChatGPT/provider domains and incomplete model replies. Normal CI uses Java tests,
 Gradle `lintDebug`, `assembleDebug`, `apksigner` and `zipalign`.
 The existing dedicated APK signing key is still required for an upgrade
 of an installed differently signed APK.
