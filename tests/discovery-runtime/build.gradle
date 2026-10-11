@@ -8,7 +8,7 @@ dependencies {
 }
 test { systemProperty 'robolectric.dependency.repo.url','https://repo.maven.apache.org/maven2'; maxHeapSize='2g'; forkEvery=1 }
 
-sourceSets.main.java { srcDir "../../overrides/ai-discovery"; include "**/AiDiscoveryStore.java", "**/AiDiscoveryClient.java", "**/DiscoveryRanking.java", "**/AiPromptPolicy.java", "**/AiOnlineClient.java"; srcDir "../../overrides/ai-assistant" }
+sourceSets.main.java { srcDir "../../overrides/ai-discovery"; include "**/AiDiscoveryStore.java", "**/AiDiscoveryClient.java", "**/DiscoveryRanking.java", "**/AiPromptPolicy.java", "**/AiOnlineClient.java", "**/AiDeveloperClient.java"; srcDir "../../overrides/ai-assistant" }
 
 test {
  def testHome = layout.buildDirectory.dir('test-home').get().asFile
