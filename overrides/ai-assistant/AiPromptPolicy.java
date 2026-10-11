@@ -14,6 +14,15 @@ public final class AiPromptPolicy {
         return text;
     }
 
+    /** Reject errors, placeholders and oversized AI output before returning to sender. */
+    public static String suggestion(String value) {
+        String cleaned = value == null ? "" : value.trim();
+        if (cleaned.isEmpty() || cleaned.length() > 4200) {
+            throw new IllegalArgumentException("متن پیشنهادی معتبر یا قابل درج نیست");
+        }
+        return cleaned;
+    }
+
     public static String model(String input) {
         String value = input == null ? "" : input.trim();
         if (!value.matches("[A-Za-z0-9._:/-]{1,80}")) {

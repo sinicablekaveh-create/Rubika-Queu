@@ -31,6 +31,7 @@ public final class AiAssistantActivity extends Activity {
     private EditText draft, server, model;
     private TextView answer;
     private Button generate;
+    private String availableSuggestion;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private static final int MAX_RESPONSE_BYTES = 65536;
 
@@ -90,9 +91,33 @@ public final class AiAssistantActivity extends Activity {
         answer.setText("پاسخ در این قسمت نمایش داده می‌شود و به‌طور خودکار ارسال نخواهد شد.");
         root.addView(answer);
         button(root, "کپی پاسخ پیشنهادی", v -> {
-            String text = answer.getText().toString();
-            if (!text.isEmpty()) copy(text);
+            if (availableSuggestion == null) {
+                Toast.makeText(this, "ابتدا یک پاسخ معتبر دریافت کنید", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            copy(availableSuggestion);
         });
+        button(root, "برگرداندن پیشنهاد به متن پیام", v -> returnToComposer());
+    }
+
+    /** Explicitly return a generated draft; never trigger any Rubika send. */
+    private void returnToComposer() {
+        final String proposal;
+        try { proposal = AiPromptPolicy.suggestion(availableSuggestion); }
+        catch (IllegalArgumentException ex) {
+            Toast.makeText(this, "پاسخ معتبر یا مناسب کادر پیام موجود نیست", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("بازگشت به کادر پیام")
+            .setMessage("متن پیشنهادی برای بررسی و جایگزینی به صفحه پیام برگردد؟ این کار هیچ پیامی ارسال نمی‌کند.")
+            .setNegativeButton("لغو", null)
+            .setPositiveButton("بازگردان", (d, which) -> {
+                Intent result = new Intent();
+                result.putExtra("ai_proposal", proposal);
+                setResult(RESULT_OK, result);
+                finish();
+            }).show();
     }
 
     private void copy(String text) {
@@ -133,13 +158,27 @@ public final class AiAssistantActivity extends Activity {
             .setNegativeButton("لغو", null)
             .setPositiveButton("ارسال متن", (dialog, which) -> {
                 generate.setEnabled(false);
+                availableSuggestion = null;
                 answer.setText("در حال دریافت پاسخ…");
                 io.execute(() -> {
                     String response;
-                    try { response = callOllama(endpoint, modelName, content); }
-                    catch (Exception e) { response = "پاسخی دریافت نشد. تنظیمات مدل و HTTPS سرور را بررسی کنید."; }
+                    boolean success;
+                    try {
+                        response = callOllama(endpoint, modelName, content);
+                        success = true;
+                    } catch (Exception e) {
+                        response = "پاسخی دریافت نشد. تنظیمات مدل و HTTPS سرور را بررسی کنید.";
+                        success = false;
+                    }
                     String result = response;
-                    runOnUiThread(() -> { if (!isFinishing()) { answer.setText(result); generate.setEnabled(true); } });
+                    boolean accepted = success;
+                    runOnUiThread(() -> {
+                        if (!isFinishing()) {
+                            answer.setText(result);
+                            availableSuggestion = accepted ? result : null;
+                            generate.setEnabled(true);
+                        }
+                    });
                 });
             }).show();
     }
