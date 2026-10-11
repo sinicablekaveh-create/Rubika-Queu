@@ -95,9 +95,13 @@ jobs:
           if any(marker in patch for marker in (
               "GIT binary patch", "Binary files ", "deleted file mode",
               "old mode ", "new mode ", "rename from ", "rename to ",
-              "copy from ", "copy to ", "+++ /dev/null"
+              "copy from ", "copy to ", "+++ /dev/null",
+              "new file mode 120000", "new file mode 100755"
           )):
               raise SystemExit("Binary, deletion, mode and rename changes are prohibited.")
+          for mode in re.findall(r"^new file mode (.+)$", patch, re.M):
+              if mode != "100644":
+                  raise SystemExit("Only regular non-executable new files are permitted.")
 
           files = re.findall(r"^diff --git a/([^\n ]+) b/([^\n ]+)$", patch, re.M)
           if not files or len(files) > 4 or len(files) != patch.count("diff --git "):
