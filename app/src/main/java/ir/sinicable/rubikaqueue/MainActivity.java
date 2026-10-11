@@ -224,7 +224,8 @@ public class MainActivity extends Activity {
  }
  /** Displays up to eighty groups and eighty public business contacts from saved findings. */
  void showResearch(){
-  try{JSONObject state=DiscoveryStore.load(this);StringBuilder b=new StringBuilder(DiscoveryData.summary(state)+"\n\nگروه‌ها\n");JSONArray groups=state.getJSONArray("groups"),contacts=state.getJSONArray("contacts");
+  try{JSONObject state=DiscoveryStore.load(this);if(client==null||client.privateKey==null||!state.optString("owner").equals(client.guid)){toast("ابتدا با این حساب جست‌وجو کنید");return;}
+   StringBuilder b=new StringBuilder(DiscoveryData.summary(state)+"\n\nگروه‌ها\n");JSONArray groups=state.getJSONArray("groups"),contacts=state.getJSONArray("contacts");
    for(int i=0;i<Math.min(80,groups.length());i++){JSONObject r=groups.getJSONObject(i);b.append(i+1).append(". ").append(r.optString("name")).append('\n').append(r.optString("visibility")).append('\n').append(r.optString("link")).append("\n\n");}
    b.append("شماره‌های تماس کاریِ عمومی\n");for(int i=0;i<Math.min(80,contacts.length());i++){JSONObject r=contacts.getJSONObject(i);b.append('+').append(r.optString("phone")).append(" • ").append(r.optString("name")).append('\n').append(r.optString("source")).append("\n\n");}
    b.append("همهٔ نتایج و وضعیت منابع در فایل Excel ذخیره می‌شوند.");TextView t=new TextView(this);t.setText(b.toString());t.setTextSize(15);t.setPadding(dp(18),dp(14),dp(18),dp(14));t.setTextIsSelectable(true);android.text.util.Linkify.addLinks(t,android.text.util.Linkify.WEB_URLS);t.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());ScrollView sv=new ScrollView(this);sv.addView(t);new AlertDialog.Builder(this).setTitle("گروه‌ها و شماره تماس‌ها").setView(sv).setPositiveButton("بستن",null).show();
