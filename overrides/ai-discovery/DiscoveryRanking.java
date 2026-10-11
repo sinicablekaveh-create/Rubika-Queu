@@ -38,21 +38,32 @@ public final class DiscoveryRanking {
         return focused.length == 0 ? new String[]{original} : focused;
     }
 
-    /** Stable bounded union of typed and AI-suggested terms. */
+    /**
+     * The legacy discovery predicate compares raw text. Unlike ranking normalization,
+     * search deduplication must preserve punctuation variants (e.g. کابل-برق vs کابل برق).
+     */
+    private static String searchKey(String text) {
+        return Normalizer.normalize(text, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT)
+            .replace('ي', 'ی').replace('ى', 'ی').replace('ك', 'ک')
+            .replace('\u200c', ' ').replaceAll("\\s+", " ").trim();
+    }
+
+    /** Stable bounded union; typed queries may be 300 characters, AI terms at most 80. */
     public static String[] combine(String[] initial, String[] suggested, int limit) {
         LinkedHashMap<String, String> unique = new LinkedHashMap<>();
-        append(unique, initial, limit);
-        append(unique, suggested, limit);
+        append(unique, initial, limit, 300);
+        append(unique, suggested, limit, 80);
         return unique.values().toArray(new String[0]);
     }
 
-    private static void append(LinkedHashMap<String, String> unique, String[] candidates, int limit) {
+    private static void append(LinkedHashMap<String, String> unique, String[] candidates,
+            int limit, int maxLength) {
         if (candidates == null || limit <= 0) return;
         for (String raw : candidates) {
             if (unique.size() >= limit) break;
             String candidate = raw == null ? "" : raw.trim().replaceAll("\\s+", " ");
-            String key = normalize(candidate);
-            if (candidate.length() >= 2 && candidate.length() <= 80 && key.length() >= 2) {
+            String key = searchKey(candidate);
+            if (candidate.length() >= 2 && candidate.length() <= maxLength && key.length() >= 2) {
                 unique.putIfAbsent(key, candidate);
             }
         }
