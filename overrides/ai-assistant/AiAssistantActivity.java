@@ -29,6 +29,8 @@ import java.util.concurrent.Executors;
 /** Opt-in AI drafting: browser handoff or user-owned HTTPS Ollama endpoint. */
 public final class AiAssistantActivity extends Activity {
     private EditText draft, server, model, onlineGateway, onlineModel, gatewayToken;
+    private EditText developmentPrompt, developmentToken;
+    private Button researchButton, proposalButton, developmentStatusButton;
     private Button onlineGenerate;
     private TextView answer;
     private Button generate;
@@ -92,6 +94,28 @@ public final class AiAssistantActivity extends Activity {
         onlineGenerate.setText("ویرایش آنلاین متن با هوش مصنوعی");
         onlineGenerate.setOnClickListener(v -> askOnlineGateway());
         root.addView(onlineGenerate, new LinearLayout.LayoutParams(-1, -2));
+        label(root, "محیط توسعه هوش مصنوعی آنلاین: تحقیق وب، پیشنهاد برنامه‌نویسی و درخواست ساخت PR در GitHub. این قابلیت پس از استقرار سرور واسط و فعال‌کردن Workflow کار می‌کند. هیچ دسترسی به حساب ChatGPT، گوشی یا ابزارهای دیگر بدون اتصال جداگانه ایجاد نمی‌شود.");
+        developmentPrompt = field(root, "موضوع تحقیق یا دستور توسعه برنامه", "");
+        developmentPrompt.setMinLines(3);
+        developmentPrompt.setGravity(Gravity.TOP);
+        developmentToken = field(root, "توکن اختصاصی محیط توسعه (DEV_GATEWAY_TOKEN)", "");
+        developmentToken.setTextDirection(View.TEXT_DIRECTION_LTR);
+        developmentToken.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        researchButton = new Button(this);
+        researchButton.setAllCaps(false);
+        researchButton.setText("گفتگو با AI و تحقیق در وب");
+        researchButton.setOnClickListener(v -> development("chat"));
+        root.addView(researchButton);
+        proposalButton = new Button(this);
+        proposalButton.setAllCaps(false);
+        proposalButton.setText("ثبت درخواست توسعه خودکار در GitHub");
+        proposalButton.setOnClickListener(v -> development("propose"));
+        root.addView(proposalButton);
+        developmentStatusButton = new Button(this);
+        developmentStatusButton.setAllCaps(false);
+        developmentStatusButton.setText("بررسی آخرین وضعیت توسعه در GitHub");
+        developmentStatusButton.setOnClickListener(v -> development("status"));
+        root.addView(developmentStatusButton);
         label(root, "روش رایگان ۲: دریافت پاسخ داخل برنامه از مدل متن‌باز روی سرور شخصی خودتان. سرور باید HTTPS و دارای گواهی معتبر باشد؛ هیچ API Key تجاری لازم نیست.");
         server = field(root, "نشانی HTTPS سرور شخصی (مثلاً https://ai.example.com)", "");
         server.setTextDirection(View.TEXT_DIRECTION_LTR);
@@ -241,6 +265,61 @@ public final class AiAssistantActivity extends Activity {
                     });
                 });
             }).show();
+    }
+
+    /** Development chat and workflow dispatch never edit the Rubika composer or send messages. */
+    private void development(String mode) {
+        final String gateway, token, instruction;
+        try {
+            gateway = onlineGateway.getText().toString().trim();
+            AiDeveloperClient.path(gateway, "/v1/dev/chat");
+            token = AiOnlineClient.gatewayToken(developmentToken.getText().toString());
+            instruction = developmentPrompt.getText().toString();
+            if ("chat".equals(mode)) AiDeveloperClient.prompt(instruction);
+            if ("propose".equals(mode)) AiDeveloperClient.task(instruction);
+        } catch (Exception error) {
+            Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        Runnable run = () -> {
+            researchButton.setEnabled(false);
+            proposalButton.setEnabled(false);
+            developmentStatusButton.setEnabled(false);
+            availableSuggestion = null;
+            answer.setText("در حال ارتباط با محیط توسعه…");
+            io.execute(() -> {
+                String output;
+                try {
+                    if ("chat".equals(mode)) {
+                        output = AiDeveloperClient.chat(gateway, token, instruction, true);
+                    } else if ("propose".equals(mode)) {
+                        output = AiDeveloperClient.propose(gateway, token, instruction);
+                    } else {
+                        output = AiDeveloperClient.status(gateway, token);
+                    }
+                } catch (Exception error) {
+                    output = "عملیات انجام نشد. اتصال HTTPS، مجوز سرور واسط، توکن و تنظیمات GitHub را بررسی کنید.";
+                }
+                final String response = output;
+                runOnUiThread(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        answer.setText(response);
+                        researchButton.setEnabled(true);
+                        proposalButton.setEnabled(true);
+                        developmentStatusButton.setEnabled(true);
+                    }
+                });
+            });
+        };
+        if ("status".equals(mode)) { run.run(); return; }
+        String title = "chat".equals(mode) ? "تأیید ارسال پرسش برای تحقیق آنلاین"
+                : "تأیید ثبت کار برنامه‌نویسی در GitHub";
+        String message = "chat".equals(mode)
+                ? "فقط متن این دستور به سرور HTTPS شما و مدل آنلاین فرستاده می‌شود. جستجوی وب ممکن است هزینهٔ API داشته باشد. ادامه می‌دهید؟"
+                : "درخواست برنامه‌نویسی به GitHub Actions فرستاده می‌شود تا یک PR پیش‌نویس بسازد. هزینهٔ API/CI ممکن است ایجاد شود. بدون بررسی و تأیید PR، ادغامی انجام نمی‌شود. ادامه می‌دهید؟";
+        new AlertDialog.Builder(this).setTitle(title).setMessage(message)
+                .setNegativeButton("لغو", null)
+                .setPositiveButton("تأیید", (dialog, which) -> run.run()).show();
     }
 
     private static String callOllama(String root, String model, String text) throws Exception {
