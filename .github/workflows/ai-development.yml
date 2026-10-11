@@ -123,10 +123,12 @@ jobs:
           subprocess.run(["git", "apply", str(path)], check=True)
           path.unlink()
           subprocess.run(["git", "diff", "--check"], check=True)
-          if not subprocess.run(["git", "diff", "--quiet"]).returncode:
-              print("Tracked files changed.")
-          elif not any(pathlib.Path(name).exists() for name in names):
-              raise SystemExit("No files created or changed.")
+          changed = subprocess.check_output(
+              ["git", "status", "--porcelain", "--untracked-files=all"], text=True
+          )
+          if not changed.strip():
+              raise SystemExit("Patch produced no repository changes.")
+          print("Proposed paths:", ", ".join(sorted(names)))
           PY
 
       # GitHub token is scoped to this separate job, after patch validation.
