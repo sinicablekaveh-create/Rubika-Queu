@@ -39,6 +39,11 @@ jobs:
           set -euo pipefail
           python3 scripts/apply-bot-message-options-v3.py
 
+      - name: Install opt-in free AI drafting assistant
+        run: |
+          set -euo pipefail
+          python3 scripts/add-ai-assistant.py
+
       - name: Fix legacy orientation constants for Android lint
         run: python3 scripts/fix-mainactivity-orientation.py
 
@@ -85,6 +90,15 @@ jobs:
             tests/BotSendOptionsTests.java
           java -cp "$RUNNER_TEMP/send-options-tests" ir.sinicable.rubikaqueue.BotSendOptionsTests
 
+      - name: Test AI endpoint and draft policies
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ai-policy-tests"
+          javac -d "$RUNNER_TEMP/ai-policy-tests" \
+            app/src/main/java/ir/sinicable/rubikaqueue/AiPromptPolicy.java \
+            tests/AiPromptPolicyTests.java
+          java -cp "$RUNNER_TEMP/ai-policy-tests" ir.sinicable.rubikaqueue.AiPromptPolicyTests
+
       - name: Install Android platform from runner SDK
         run: |
           set -euo pipefail
@@ -128,14 +142,14 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
           if [ -s signing/test-signing.p12 ]; then
             "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" | grep -qi '8747838d913e2f0f58dc66e432eb3753bc826e6a3f7e23eaf6bb799cd63af28b'
-            cp "$apk" Rubika-Queu-v1.2-test-signed.apk
+            cp "$apk" Rubika-Queu-v1.3-test-signed.apk
           else
-            cp "$apk" Rubika-Queu-v1.2-debug-NOT-UPDATABLE.apk
+            cp "$apk" Rubika-Queu-v1.3-debug-NOT-UPDATABLE.apk
           fi
 
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rubika-Queu-v1.2-apk
-          path: Rubika-Queu-v1.2-*.apk
+          name: Rubika-Queu-v1.3-apk
+          path: Rubika-Queu-v1.3-*.apk
           if-no-files-found: error
