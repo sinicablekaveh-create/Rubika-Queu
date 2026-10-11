@@ -32,9 +32,6 @@ public final class AiAssistantActivity extends Activity {
     private EditText developmentPrompt, developmentToken;
     private Button researchButton, proposalButton, developmentStatusButton;
     private Button onlineGenerate;
-    private EditText developerRequest;
-    private Button developerChat, developerResearch, developerPropose, developerStatus;
-    private boolean developerBusy;
     private TextView answer;
     private Button generate;
     private String availableSuggestion;
@@ -97,14 +94,6 @@ public final class AiAssistantActivity extends Activity {
         onlineGenerate.setText("ویرایش آنلاین متن با هوش مصنوعی");
         onlineGenerate.setOnClickListener(v -> askOnlineGateway());
         root.addView(onlineGenerate, new LinearLayout.LayoutParams(-1, -2));
-        label(root, "دستیار توسعه آنلاین: گفتگو و تحقیق وب از طریق سرور واسط اختصاصی؛ " +
-                "ارسال درخواست توسعه فقط با تأیید شما و به شکل Pull Request پیش‌نویس در GitHub.");
-        developerRequest = field(root, "سؤال برنامه‌نویسی یا دستور توسعه Rubika-Queu", "");
-        developerRequest.setMinLines(3);
-        developerChat = developerButton(root, "گفتگو با هوش مصنوعی آنلاین", () -> developerAction("chat"));
-        developerResearch = developerButton(root, "تحقیق وب و پیشنهاد توسعه", () -> developerAction("research"));
-        developerPropose = developerButton(root, "شروع توسعه در GitHub (Draft PR)", () -> developerAction("propose"));
-        developerStatus = developerButton(root, "وضعیت آخرین Workflow توسعه", () -> developerAction("status"));
         label(root, "محیط توسعه هوش مصنوعی آنلاین: تحقیق وب، پیشنهاد برنامه‌نویسی و درخواست ساخت PR در GitHub. این قابلیت پس از استقرار سرور واسط و فعال‌کردن Workflow کار می‌کند. هیچ دسترسی به حساب ChatGPT، گوشی یا ابزارهای دیگر بدون اتصال جداگانه ایجاد نمی‌شود.");
         developmentPrompt = field(root, "موضوع تحقیق یا دستور توسعه برنامه", "");
         developmentPrompt.setMinLines(3);
@@ -230,82 +219,6 @@ public final class AiAssistantActivity extends Activity {
                     });
                 });
             }).show();
-    }
-
-    private Button developerButton(LinearLayout root, String label, Runnable action) {
-        Button button = new Button(this);
-        button.setAllCaps(false);
-        button.setText(label);
-        button.setOnClickListener(v -> action.run());
-        root.addView(button, new LinearLayout.LayoutParams(-1, -2));
-        return button;
-    }
-
-    private void setDeveloperBusy(boolean running) {
-        developerBusy = running;
-        developerChat.setEnabled(!running);
-        developerResearch.setEnabled(!running);
-        developerPropose.setEnabled(!running);
-        developerStatus.setEnabled(!running);
-    }
-
-    private void developerAction(String mode) {
-        if (developerBusy) return;
-        final String gateway, token, text;
-        try {
-            gateway = onlineGateway.getText().toString().trim();
-            token = AiDeveloperClient.path(gateway, "/v1/dev/chat").isEmpty() ? ""
-                    : AiOnlineClient.gatewayToken(gatewayToken.getText().toString());
-            text = "status".equals(mode) ? "" : developerRequest.getText().toString();
-            if ("propose".equals(mode)) AiDeveloperClient.task(text);
-            else if (!"status".equals(mode)) AiDeveloperClient.prompt(text);
-        } catch (IllegalArgumentException error) {
-            Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
-            return;
-        }
-        final boolean changingGitHub = "propose".equals(mode);
-        final String title = changingGitHub ? "تأیید شروع توسعه در GitHub"
-                : "status".equals(mode) ? "بررسی وضعیت توسعه" : "ارسال درخواست به سرور AI";
-        final String detail = changingGitHub
-                ? "این دستور به سرور انتخابی و سپس GitHub Actions فرستاده می‌شود. " +
-                  "تغییرات پیشنهادی فقط در یک Pull Request پیش‌نویس قرار می‌گیرند؛ " +
-                  "ادغام و انتشار خودکار انجام نمی‌شود. ادامه می‌دهید؟"
-                : "متن این کادر به سرور واسط ارسال می‌شود؛ در حالت تحقیق وب، " +
-                  "ممکن است سرویس مدل جستجوی اینترنتی انجام دهد. ادامه می‌دهید؟";
-        Runnable go = () -> {
-            setDeveloperBusy(true);
-            answer.setText("در حال اجرای درخواست توسعه آنلاین…");
-            io.execute(() -> {
-                String response;
-                try {
-                    switch (mode) {
-                        case "propose":
-                            response = AiDeveloperClient.propose(gateway, token, text); break;
-                        case "status":
-                            response = AiDeveloperClient.status(gateway, token); break;
-                        default:
-                            response = AiDeveloperClient.chat(gateway, token, text,
-                                    "research".equals(mode));
-                    }
-                } catch (Exception error) {
-                    response = "درخواست کامل نشد. نشانی HTTPS، دسترسی سرور، " +
-                            "توکن و پیکربندی GitHub را بررسی کنید.";
-                }
-                final String displayed = response;
-                runOnUiThread(() -> {
-                    if (!isFinishing() && !isDestroyed()) {
-                        answer.setText(displayed);
-                        // A development response is never copied back into the message queue.
-                        availableSuggestion = null;
-                        setDeveloperBusy(false);
-                    }
-                });
-            });
-        };
-        if ("status".equals(mode)) go.run();
-        else new AlertDialog.Builder(this).setTitle(title).setMessage(detail)
-                .setNegativeButton("لغو", null)
-                .setPositiveButton("تأیید", (dialog, which) -> go.run()).show();
     }
 
     /** Only the manually entered draft is sent, after an explicit confirmation. */
