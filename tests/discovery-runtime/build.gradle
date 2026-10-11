@@ -1,0 +1,37 @@
+plugins { id 'java' }
+repositories { mavenCentral(); google() }
+dependencies {
+ compileOnly 'org.robolectric:android-all:14-robolectric-10818077'
+ testImplementation 'org.robolectric:android-all:14-robolectric-10818077'
+ testImplementation 'junit:junit:4.13.2'
+ testImplementation 'org.robolectric:robolectric:4.14.1'
+}
+test { systemProperty 'robolectric.dependency.repo.url','https://repo.maven.apache.org/maven2'; maxHeapSize='2g'; forkEvery=1 }
+
+sourceSets.main.java { srcDir "../../overrides/ai-discovery"; include "**/AiDiscoveryStore.java", "**/AiDiscoveryClient.java", "**/DiscoveryRanking.java", "**/AiPromptPolicy.java"; srcDir "../../overrides/ai-assistant" }
+
+test {
+ def testHome = layout.buildDirectory.dir('test-home').get().asFile
+ testHome.mkdirs()
+ systemProperty 'user.home', testHome.absolutePath
+ ['https.proxyHost','https.proxyPort','http.proxyHost','http.proxyPort','javax.net.ssl.trustStore'].each { name ->
+  if (System.getProperty(name) != null) systemProperty name, System.getProperty(name)
+ }
+}
+// Java-only harness: expose AndroidX AAR classes to Robolectric without an Android app plugin.
+def aarJars = layout.buildDirectory.dir('aar-jars')
+tasks.register('extractTestAars') {
+ doLast {
+  delete aarJars.get().asFile
+  aarJars.get().asFile.mkdirs()
+  configurations.testRuntimeClasspath.files.findAll { it.name.endsWith('.aar') }.each { artifact ->
+   copy {
+    from zipTree(artifact)
+    include 'classes.jar'
+    into aarJars.get().asFile
+    rename 'classes.jar', artifact.name + '.jar'
+   }
+  }
+ }
+}
+test { dependsOn 'extractTestAars'; classpath += fileTree(aarJars) { include '*.jar' } }
