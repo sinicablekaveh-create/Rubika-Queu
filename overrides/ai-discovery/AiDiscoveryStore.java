@@ -16,15 +16,23 @@ import java.util.Map;
 
 /** Independent account-scoped cache; never changes the queue or legacy discovery store. */
 public final class AiDiscoveryStore extends SQLiteOpenHelper implements AutoCloseable {
-    public AiDiscoveryStore(Context context) { super(context, "ai-discovery.db", null, 1); }
+    public AiDiscoveryStore(Context context) { super(context, "ai-discovery.db", null, 2); }
     @Override public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE groups_cache(owner TEXT NOT NULL, identity TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(owner,identity))");
-        db.execSQL("CREATE TABLE searches(id INTEGER PRIMARY KEY, owner TEXT NOT NULL, query TEXT NOT NULL, searched_at INTEGER NOT NULL, result_count INTEGER NOT NULL)");
+        db.execSQL("CREATE TABLE searches(id INTEGER PRIMARY KEY, owner TEXT NOT NULL, query TEXT NOT NULL, searched_at INTEGER NOT NULL, result_count INTEGER NOT NULL, suggested_terms TEXT NOT NULL DEFAULT '[]')");
     }
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        if (oldVersion == 1 && newVersion == 2) {
+            db.execSQL("ALTER TABLE searches ADD COLUMN suggested_terms TEXT NOT NULL DEFAULT '[]'");
+            return;
+        }
         throw new IllegalStateException("Unsupported discovery schema upgrade");
     }
     public void save(String owner, String query, JSONArray groups) throws Exception {
+        save(owner, query, groups, new String[0]);
+    }
+    public void save(String owner, String query, JSONArray groups, String[] suggestions)
+            throws Exception {
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {
@@ -40,6 +48,18 @@ public final class AiDiscoveryStore extends SQLiteOpenHelper implements AutoClos
                 String guid = incoming.optString("guid").trim();
                 String link = incoming.optString("link").trim();
                 if (guid.isEmpty() && link.isEmpty()) continue;
+                // A reused public link may refer to multiple identified groups. A
+                // link-only observation cannot select either GUID without guessing.
+                if (guid.isEmpty() && !link.isEmpty()) {
+                    java.util.HashSet<String> candidates = new java.util.HashSet<>();
+                    for (JSONObject previous : known.values()) {
+                        if (link.equals(previous.optString("link").trim())) {
+                            String previousGuid = previous.optString("guid").trim();
+                            if (!previousGuid.isEmpty()) candidates.add(previousGuid);
+                        }
+                    }
+                    if (candidates.size() > 1) continue;
+                }
                 JSONObject merged = new JSONObject(incoming.toString());
                 ArrayList<String> stale = new ArrayList<>();
                 for (Map.Entry<String, JSONObject> row : known.entrySet()) {
@@ -77,11 +97,42 @@ public final class AiDiscoveryStore extends SQLiteOpenHelper implements AutoClos
             }
             ContentValues h = new ContentValues();
             h.put("owner", owner); h.put("query", query); h.put("searched_at", System.currentTimeMillis()); h.put("result_count", groups.length());
+            JSONArray accepted = new JSONArray();
+            for (String value : DiscoveryRanking.combine(new String[0], suggestions, 4)) {
+                accepted.put(value);
+            }
+            h.put("suggested_terms", accepted.toString());
             db.insertOrThrow("searches", null, h);
             db.execSQL("DELETE FROM searches WHERE owner=? AND id NOT IN (SELECT id FROM searches WHERE owner=? ORDER BY id DESC LIMIT 100)", new Object[]{owner, owner});
             db.execSQL("DELETE FROM groups_cache WHERE owner=? AND rowid NOT IN (SELECT rowid FROM groups_cache WHERE owner=? ORDER BY rowid DESC LIMIT 1000)", new Object[]{owner, owner});
             db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
+    }
+    /** Suggested terms belong to the account and the exact originating query. */
+    public static final class SearchContext {
+        public final String query;
+        public final String[] suggestions;
+        SearchContext(String query, String[] suggestions) {
+            this.query = query;
+            this.suggestions = suggestions;
+        }
+    }
+    public SearchContext searchContext(String owner, String requestedQuery) throws Exception {
+        String requested = requestedQuery == null ? "" : requestedQuery.trim();
+        boolean specific = !requested.isEmpty();
+        String sql = specific
+                ? "SELECT query,suggested_terms FROM searches WHERE owner=? AND query=? ORDER BY id DESC LIMIT 1"
+                : "SELECT query,suggested_terms FROM searches WHERE owner=? ORDER BY id DESC LIMIT 1";
+        String[] args = specific ? new String[]{owner, requested} : new String[]{owner};
+        try (Cursor cursor = getReadableDatabase().rawQuery(sql, args)) {
+            if (cursor.moveToFirst()) {
+                JSONArray stored = new JSONArray(cursor.getString(1));
+                String[] suggestions = new String[stored.length()];
+                for (int i = 0; i < stored.length(); i++) suggestions[i] = stored.getString(i);
+                return new SearchContext(cursor.getString(0), suggestions);
+            }
+        }
+        return new SearchContext(requested, new String[0]);
     }
     public JSONArray groups(String owner) throws Exception {
         JSONArray result = new JSONArray();
