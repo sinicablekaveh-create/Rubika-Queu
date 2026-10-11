@@ -27,9 +27,10 @@ async function boundedText(response, maxBytes = 65536) {
   return new TextDecoder().decode(buffer);
 }
 async function safeBody(request) {
-  const raw = await request.arrayBuffer();
-  if (raw.byteLength > 12000) throw new Error("Request too large");
-  return JSON.parse(new TextDecoder().decode(raw));
+  if (Number(request.headers.get("Content-Length") || 0) > 12000) {
+    throw new Error("Request too large");
+  }
+  return JSON.parse(await boundedText(request, 12000));
 }
 async function development(request, env, pathname) {
   if (!env.DEV_GATEWAY_TOKEN || env.DEV_GATEWAY_TOKEN.length < 24
