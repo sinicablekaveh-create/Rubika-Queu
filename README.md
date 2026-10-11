@@ -46,3 +46,7 @@ The complete patched Android sources, plus isolated Java interval tests, are in 
 ## Rate-limit retry reliability fix
 
 Explicit rate rejections now increase the retry delay beyond the old fifth-retry plateau: 10, 20, 40, 80, 160, 320, and 640 seconds, then a maximum of 900 seconds. Random jitter is included within that ceiling. Persisted retry counts and jitter are bounded to avoid overflow. The existing send interval and manual review of ambiguous results still apply. The bundled `RetryBackoffTests` run before the APK build in GitHub Actions.
+
+## Automatic topic-based group discovery (opt-in)
+
+The **کشف هوشمند گروه‌ها** screen accepts comma-separated Persian topics, for example `برق صنعتی، سینی کابل، نردبان کابل`. One explicit search automatically looks up up to eight focused topics through the existing discovery engine, ranks real results, and caches identified groups per signed-in account. The optional HTTPS Ollama integration only expands search phrases with explicit confirmation; it is not required for basic multi-topic search. A running search and its progress survive screen rotation. Group links and GUIDs are reconciled in the local cache. No automatic group joining, contact extraction, or messages are performed. See [AI discovery](docs/ai-discovery.md).
