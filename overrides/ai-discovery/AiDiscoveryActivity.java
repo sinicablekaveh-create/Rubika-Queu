@@ -181,21 +181,25 @@ public final class AiDiscoveryActivity extends Activity {
         }
         try {
             RubikaClient client = account(task.context);
-            LinkedHashSet<String> all = new LinkedHashSet<>(Arrays.asList(DiscoveryRanking.terms(q)));
+            String[] typed = DiscoveryRanking.terms(q);
+            String[] suggested = new String[0];
             String note = "";
             if (!server.isEmpty()) {
                 try {
-                    all.addAll(Arrays.asList(AiDiscoveryClient.expand(server, model, q)));
+                    suggested = AiDiscoveryClient.expand(server, model, q);
                 } catch (Exception error) {
                     if (task.stopped()) throw new InterruptedException("جست‌وجو متوقف شد");
                     note = "AI در دسترس نبود؛ جست‌وجوی اصلی انجام شد.\n";
                 }
             }
             if (task.stopped()) throw new InterruptedException("جست‌وجو متوقف شد");
+            final String[] expanded = suggested;
+            String[] searchTerms = DiscoveryRanking.combine(typed, expanded, 12);
+            task.progress("در حال جست‌وجو در " + searchTerms.length + " عبارت…");
             JSONObject data = DiscoveryData.empty();
             new DiscoveryEngine((method, input) -> client.call(method, input, false),
                     new DiscoveryEngine.PublicPages(), 1800)
-                .run(data, all.toArray(new String[0]), true, false, new DiscoveryEngine.Progress() {
+                .run(data, searchTerms, true, false, new DiscoveryEngine.Progress() {
                     private int lastCount = -1;
                     public boolean stopped() { return task.stopped(); }
                     public void update(JSONObject state, String text) {
@@ -212,46 +216,62 @@ public final class AiDiscoveryActivity extends Activity {
             try (AiDiscoveryStore store = new AiDiscoveryStore(task.context)) {
                 store.save(client.guid, q, groups);
             }
-            return note + ranked(q, groups);
+            return note + ranked(q, groups, expanded);
         } finally {
             OperationGate.release("ai-discovery");
         }
     }
 
     private static String ranked(String q, JSONArray groups) throws Exception {
-        final String[] terms;
-        try { terms = DiscoveryRanking.terms(q); }
-        catch (IllegalArgumentException error) {
-            // Cached results should still be viewable with an empty search box.
-            return rankWithTerms(new String[0], groups);
-        }
-        return rankWithTerms(terms, groups);
+        return ranked(q, groups, new String[0]);
     }
-    private static String rankWithTerms(String[] terms, JSONArray groups) throws Exception {
+    private static String ranked(String q, JSONArray groups, String[] suggested) throws Exception {
+        String[] typed;
+        try { typed = DiscoveryRanking.terms(q); }
+        catch (IllegalArgumentException error) {
+            // An empty topic must not block viewing the user's saved groups.
+            typed = new String[0];
+        }
+        return rankWithTerms(typed, suggested, groups);
+    }
+    private static String rankWithTerms(String[] typed, String[] suggested,
+            JSONArray groups) throws Exception {
         List<JSONObject> rows = new ArrayList<>();
         for (int i = 0; i < groups.length(); i++) rows.add(groups.getJSONObject(i));
         rows.sort((a, b) -> {
-            int byScore = Integer.compare(score(terms, b), score(terms, a));
+            int byScore = Integer.compare(score(typed, suggested, b),
+                    score(typed, suggested, a));
             return byScore != 0 ? byScore
                     : a.optString("name").compareToIgnoreCase(b.optString("name"));
         });
-        StringBuilder out = new StringBuilder("گروه‌ها: " + rows.size()
-                + "\nرتبه بر اساس تطبیق موضوع است؛ مجوز ارسال یا اعتبار گروه را تضمین نمی‌کند.\n");
+        int matched = 0;
+        for (JSONObject group : rows) {
+            if (score(typed, suggested, group) > 0) matched++;
+        }
+        StringBuilder out = new StringBuilder("گروه‌های یافت‌شده: " + rows.size()
+                + "\nدارای تطبیق موضوعی: " + matched
+                + "\nرتبه‌ها بر اساس عبارت اصلی و پیشنهادهای AI هستند؛ امتیاز درصد نیست و مجوز ارسال یا اعتبار گروه را تضمین نمی‌کند.\n");
         for (JSONObject group : rows) {
             String name = group.optString("name").trim();
             String identity = group.optString("link").trim();
             if (identity.isEmpty()) identity = group.optString("guid").trim();
+            int direct = DiscoveryRanking.scoreAny(typed, group.optString("name"),
+                    group.optString("keyword"), !group.optString("guid").isEmpty());
+            int value = score(typed, suggested, group);
+            String relevance = direct > 0 ? "تطبیق مستقیم" :
+                    value > 0 ? "تطبیق با عبارت پیشنهادی" : "بدون تطبیق موضوعی";
             out.append("\n").append(name.isEmpty() ? "گروه بدون عنوان" : name)
-                    .append(" • امتیاز ").append(score(terms, group)).append("\n");
+                    .append(" • ").append(relevance).append(" • امتیاز ").append(value).append("\n");
             if (!identity.isEmpty()) out.append(identity).append("\n");
             String availability = group.optString("availability").trim();
             if (!availability.isEmpty()) out.append(availability).append("\n");
         }
         return out.toString();
     }
-    private static int score(String[] terms, JSONObject group) {
-        return DiscoveryRanking.scoreAny(terms, group.optString("name"),
-                group.optString("keyword"), !group.optString("guid").isEmpty());
+    private static int score(String[] typed, String[] suggested, JSONObject group) {
+        return DiscoveryRanking.scoreWithSuggestions(typed, suggested,
+                group.optString("name"), group.optString("keyword"),
+                !group.optString("guid").isEmpty());
     }
     private void local(boolean history) {
         final String q = query.getText().toString();
