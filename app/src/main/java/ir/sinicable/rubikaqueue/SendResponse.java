@@ -6,12 +6,14 @@ import java.util.Set;
 
 /** Optional receipt extraction, used only after an explicit successful API response. */
 public final class SendResponse {
+ /** Extracts a unique receipt ID from an acknowledged response, returning empty if absent/ambiguous and rejecting an explicit error status. */
  public static String messageId(JSONObject data,String target,long requestId)throws Exception {
   if(data.has("status")&&!data.isNull("status")&&!"OK".equals(data.optString("status")))
    throw new RubikaClient.ApiError(RubikaClient.safeCode(data.optString("status")));
   Set<String> ids=new LinkedHashSet<>();collect(data,target,requestId,ids,0);
   return ids.size()==1?ids.iterator().next():"";
  }
+ /** Collects valid receipt IDs through supported message wrappers up to depth six, excluding mismatched target or request IDs. */
  private static void collect(Object value,String target,long requestId,Set<String> ids,int depth)throws JSONException {
   if(depth>6)return;
   if(value instanceof JSONArray){JSONArray a=(JSONArray)value;for(int i=0;i<a.length();i++)collect(a.opt(i),target,requestId,ids,depth+1);return;}

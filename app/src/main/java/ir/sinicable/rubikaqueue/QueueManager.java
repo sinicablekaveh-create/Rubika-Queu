@@ -8,7 +8,9 @@ import android.database.sqlite.SQLiteDatabase;
 public class QueueManager {
     private final QueueDatabase db;
 
+    /** Creates a queue manager backed by the application's queue database helper. */
     public QueueManager(Context context) { db = new QueueDatabase(context); }
+    /** Returns the database helper used by this manager. */
     public QueueDatabase database() { return db; }
 
     /** Claim one due item atomically, so concurrent workers cannot claim it twice. */

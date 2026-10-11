@@ -3,8 +3,11 @@ import org.json.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 public final class DiscoveryData {
+ /** Creates empty group, contact and log collections with the initial discovery note. */
  public static JSONObject empty()throws Exception{return RubikaClient.obj("groups",new JSONArray(),"contacts",new JSONArray(),"logs",new JSONArray(),"note","هنوز جست‌وجویی انجام نشده");}
+ /** Returns the current UTC timestamp in ISO 8601 format with second precision. */
  public static String stamp(){SimpleDateFormat f=new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'",Locale.US);f.setTimeZone(TimeZone.getTimeZone("UTC"));return f.format(new Date());}
+ /** Merges a contact by phone or a group by GUID/link, preserving first-seen data and limiting new entries to 1,000. */
  public static void merge(JSONObject state,String collection,JSONObject item,String stamp)throws Exception {
   JSONArray a=state.getJSONArray(collection);JSONObject found=null;
   for(int i=0;i<a.length();i++){JSONObject r=a.getJSONObject(i);boolean same=collection.equals("contacts")?r.optString("phone").equals(item.optString("phone")):(!item.optString("guid").isEmpty()&&item.optString("guid").equals(r.optString("guid")))||(!item.optString("link").isEmpty()&&item.optString("link").equals(r.optString("link")));if(same){
@@ -17,8 +20,10 @@ public final class DiscoveryData {
   Iterator<String> keys=item.keys();while(keys.hasNext()){String k=keys.next();Object v=item.opt(k);if(v!=null&&v!=JSONObject.NULL&&!v.toString().isEmpty())found.put(k,v);}
   found.put("last_seen",stamp);
  }
+ /** Appends a timestamped source status and retains only the latest 100 log entries. */
  public static void log(JSONObject state,String source,String status)throws Exception {
   JSONArray a=state.getJSONArray("logs");a.put(RubikaClient.obj("time",stamp(),"source",source,"status",status));if(a.length()>100){JSONArray b=new JSONArray();for(int i=a.length()-100;i<a.length();i++)b.put(a.get(i));state.put("logs",b);}
  }
+ /** Returns group and contact counts together with the latest discovery note. */
  public static String summary(JSONObject s)throws Exception{return "گروه‌ها: "+s.getJSONArray("groups").length()+" | تماس کاری عمومی: "+s.getJSONArray("contacts").length()+"\n"+s.optString("note");}
 }

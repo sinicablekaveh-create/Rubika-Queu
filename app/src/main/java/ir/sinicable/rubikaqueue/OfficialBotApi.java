@@ -19,6 +19,7 @@ public final class OfficialBotApi {
     private static final int MAX_REPLY_BYTES = 64 * 1024;
     private final String token;
 
+    /** Creates a client with a token retained in memory, rejecting unsupported token characters or lengths. */
     public OfficialBotApi(String token) {
         if (token == null || !token.matches("[A-Za-z0-9_:.\\-]{8,256}")) {
             throw new IllegalArgumentException("توکن بات معتبر نیست");
@@ -45,6 +46,7 @@ public final class OfficialBotApi {
         return call("sendMessage", payload);
     }
 
+    /** Calls an allowed bot method without redirects, bounds the response and rejects HTTP or API failures. */
     private JSONObject call(String method, JSONObject payload) throws Exception {
         // Methods are fixed constants; no untrusted URL or host can be supplied.
         if (!"getMe".equals(method) && !"sendMessage".equals(method)) {
@@ -88,6 +90,7 @@ public final class OfficialBotApi {
         }
     }
 
+    /** Reads a UTF-8 response, throwing IOException if it exceeds 64 KiB. */
     private static String readBounded(InputStream in) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         byte[] buffer = new byte[4096];
@@ -99,6 +102,7 @@ public final class OfficialBotApi {
         return new String(out.toByteArray(), StandardCharsets.UTF_8);
     }
 
+    /** Returns the message ID from data or the top-level response, or an empty string if absent. */
     public static String messageId(JSONObject response) {
         JSONObject data = response.optJSONObject("data");
         String id = data == null ? "" : data.optString("message_id", "");

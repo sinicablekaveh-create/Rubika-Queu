@@ -1,7 +1,9 @@
 package ir.sinicable.rubikaqueue;
 import java.math.BigDecimal;
 public final class Phones {
+ /** Converts Persian and Arabic-Indic digits to ASCII while preserving other characters. */
  public static String digits(String s){StringBuilder b=new StringBuilder();for(char c:s.toCharArray()){if(c>='۰'&&c<='۹')c=(char)('0'+c-'۰');if(c>='٠'&&c<='٩')c=(char)('0'+c-'٠');b.append(c);}return b.toString();}
+ /** Normalizes supported Iranian mobile formats to 989 followed by nine digits, or returns empty for invalid input. */
  public static String normalize(String value){
   String s=digits(value==null?"":value).trim().replaceAll("[\\s\\u00a0\\u200e\\u200f\\u202a-\\u202e()\\-]","");
   if(s.startsWith("'"))s=s.substring(1);

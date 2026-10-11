@@ -6,18 +6,21 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import javax.net.ssl.HttpsURLConnection;
 public class DiscoveryEngine {
- public interface ReadApi{JSONObject read(String method,JSONObject input)throws Exception;}
- public interface Pages{String get(String url)throws Exception;}
- public interface Progress{boolean stopped();void update(JSONObject state,String note)throws Exception;}
+ public interface ReadApi{/** Executes a discovery API read and returns its response data. */ JSONObject read(String method,JSONObject input)throws Exception;}
+ public interface Pages{/** Fetches the public page text for the supplied URL. */ String get(String url)throws Exception;}
+ public interface Progress{/** Returns whether the caller has requested discovery cancellation. */ boolean stopped();/** Publishes the current findings and progress note; persistence failures may propagate. */ void update(JSONObject state,String note)throws Exception;}
  private final ReadApi api;private final Pages pages;private final long delay;
  private boolean wantGroups=true,wantContacts=true;
+ /** Creates a discovery runner with API/page providers and a delay in milliseconds between API reads. */
  public DiscoveryEngine(ReadApi a,Pages p,long milliseconds){api=a;pages=p;delay=milliseconds;}
  public static final String[] PUBLIC_SOURCES={"https://t.me/s/linkbarghi","https://telegram.me/s/barghkaranejavan"};
  private final Set<String> checkedChannels=new HashSet<>(),checkedLinks=new HashSet<>();private int inspected=0;
+ /** Allows only discovery read methods, waits the configured delay, and forwards the request. */
  private JSONObject read(String method,JSONObject input)throws Exception {
   if(!Arrays.asList("getChats","searchGlobalObjects","getChannelInfo","groupPreviewByJoinLink").contains(method))throw new IllegalArgumentException("Read-only discovery method required");
   if(delay>0)Thread.sleep(delay);return api.read(method,input);
  }
+ /** Collects matching groups and public business contacts into state, reporting progress and honoring cancellation. */
  public void run(JSONObject state,String[] terms,Progress progress)throws Exception {
   String stamp=DiscoveryData.stamp();state.put("last_run",stamp);state.put("keywords",String.join("، ",terms));checkedChannels.clear();checkedLinks.clear();inspected=0;
   String cursor="";
@@ -59,7 +62,9 @@ public class DiscoveryEngine {
   }
   progress.update(state,progress.stopped()?"جست‌وجو متوقف شد؛ یافته‌ها نگه داشته شدند":"جست‌وجو تمام شد؛ تعداد نتایج به منابع در دسترس بستگی دارد");
  }
+ /** Selects the result categories and runs discovery using the supplied search terms. */
  public void run(JSONObject state,String[] terms,boolean groups,boolean contacts,Progress progress)throws Exception {wantGroups=groups;wantContacts=contacts;run(state,terms,progress);}
+ /** Merges public business phones and previews group links without joining groups. */
  private void collect(JSONObject state,String title,String text,String source,String term,String stamp,Progress progress)throws Exception {
   if(wantContacts){JSONArray phones=LeadExtractor.publicBusinessPhones(text,title,source,term);for(int i=0;i<phones.length();i++)DiscoveryData.merge(state,"contacts",phones.getJSONObject(i),stamp);}
   if(wantGroups)for(String link:LeadExtractor.groupLinks(text)){
@@ -70,10 +75,14 @@ public class DiscoveryEngine {
    DiscoveryData.merge(state,"groups",item,stamp);
   }
  }
+ /** Returns whether an API error requires discovery to stop for rate or authentication restrictions. */
  static boolean rate(Exception e){return e instanceof RubikaClient.ApiError&&((RubikaClient.ApiError)e).code.matches("(?i).*(REQUEST|LIMIT|FLOOD|AUTH|REGISTER).*");}
+ /** Formats a discovery failure using API status, known network errors or the exception class. */
  static String problem(Exception e){if(e instanceof RubikaClient.ApiError)return e.getMessage();if(e instanceof java.net.SocketTimeoutException)return "مهلت ارتباط تمام شد";if(e instanceof java.net.UnknownHostException)return "منبع در دسترس نیست";return "منبع بررسی نشد: "+e.getClass().getSimpleName();}
  public static class PublicPages implements Pages {
+  /** Returns whether the HTML contains Telegram's public message-text marker. */
   public static boolean hasPublicPosts(String html){return html.contains("tgme_widget_message_text");}
+  /** Fetches an allowlisted page without redirects, rejecting responses over 2 MiB or without public posts. */
   public String get(String url)throws Exception {
    if(!Arrays.asList(PUBLIC_SOURCES).contains(url))throw new IOException("منبع عمومی مجاز نیست");
    HttpsURLConnection c=(HttpsURLConnection)new URL(url).openConnection();c.setInstanceFollowRedirects(false);c.setConnectTimeout(12000);c.setReadTimeout(15000);c.setRequestProperty("User-Agent","RubikaQueue/0.3 public business research");

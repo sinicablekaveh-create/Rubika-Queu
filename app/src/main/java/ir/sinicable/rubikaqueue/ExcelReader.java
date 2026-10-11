@@ -6,9 +6,10 @@ import javax.xml.parsers.*;
 import org.w3c.dom.*;
 
 public final class ExcelReader {
- public static class Entry {public String phone,name;public int row;Entry(String p,String n,int r){phone=p;name=n;row=r;}}
+ public static class Entry {public String phone,name;public int row;/** Stores a normalized phone, display name and source worksheet row number. */ Entry(String p,String n,int r){phone=p;name=n;row=r;}}
  public static class Result {public final List<Entry> entries=new ArrayList<>();public int invalid,duplicates;}
  static final int MAX_XML=16*1024*1024;
+ /** Reads a ZIP XML entry within the 16 MiB limit, rejecting DTD/entity declarations and external entities. */
  static Document xml(ZipFile z,String path)throws Exception {
   ZipEntry e=z.getEntry(path);if(e==null)throw new IOException("بخش لازم فایل اکسل پیدا نشد: "+path);
   if(e.getSize()>MAX_XML)throw new IOException("فایل اکسل بیش از حد بزرگ است");
@@ -19,10 +20,15 @@ public final class ExcelReader {
   DocumentBuilder p=f.newDocumentBuilder();p.setEntityResolver((publicId,systemId)->{throw new org.xml.sax.SAXException("External entities disabled");});
   return p.parse(new ByteArrayInputStream(b.toByteArray()));
  }
+ /** Returns descendant elements with the requested local name in any namespace. */
  static NodeList tags(Element e,String t){return e.getElementsByTagNameNS("*",t);}
+ /** Returns the first matching descendant's text, or an empty string when absent. */
  static String text(Element e,String t){NodeList a=tags(e,t);return a.getLength()==0?"":a.item(0).getTextContent();}
+ /** Converts leading Excel column letters to a zero-based index; returns -1 if absent and rejects columns beyond XFD. */
  static int column(String s)throws IOException {int col=0;for(char c:s.toCharArray()){if(c<'A'||c>'Z')break;col=col*26+c-'A'+1;if(col>16384)throw new IOException("ستون اکسل نامعتبر");}return col-1;}
+ /** Normalizes digits and case and removes whitespace, underscores and zero-width non-joiners from a header. */
  static String header(String s){return Phones.digits(s).toLowerCase(Locale.ROOT).replaceAll("[\\s_\\u200c]","");}
+ /** Reads unique Iranian phone recipients from the first XLSX sheet, counting invalid/duplicate rows and enforcing file and row limits. */
  public static Result read(File file)throws Exception {
   if(file.length()>8*1024*1024)throw new IOException("حداکثر حجم فایل ۸ مگابایت است");
   try(ZipFile z=new ZipFile(file)){

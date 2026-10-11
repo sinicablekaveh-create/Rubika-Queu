@@ -4,9 +4,13 @@ import java.io.*;
 import java.util.zip.*;
 import java.nio.charset.StandardCharsets;
 public final class ResearchXlsx {
+ /** Removes disallowed low control characters and escapes XML markup characters in cell text. */
  static String xml(String s){StringBuilder b=new StringBuilder();for(char c:s.toCharArray())if(c>=32||c=='\n'||c=='\r'||c=='\t')b.append(c);return b.toString().replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;");}
+ /** Converts a zero-based column index to Excel column letters. */
  static String col(int n){StringBuilder b=new StringBuilder();do{b.insert(0,(char)('A'+n%26));n=n/26-1;}while(n>=0);return b.toString();}
+ /** Writes UTF-8 content to a named ZIP entry and closes that entry. */
  static void entry(ZipOutputStream z,String path,String body)throws IOException{z.putNextEntry(new ZipEntry(path));z.write(body.getBytes(StandardCharsets.UTF_8));z.closeEntry();}
+ /** Builds a right-to-left worksheet with a frozen header, inline text cells and an autofilter. */
  static String sheet(JSONArray rows,String[] headers,String[] keys)throws Exception {
   StringBuilder s=new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetViews><sheetView workbookViewId=\"0\" rightToLeft=\"1\"><pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/></sheetView></sheetViews><cols>");
   for(int i=0;i<headers.length;i++){int width=(keys[i].equals("excerpt")||keys[i].equals("source")||keys[i].equals("link")||keys[i].equals("status"))?55:(keys[i].equals("phone")?22:32);s.append("<col min=\"").append(i+1).append("\" max=\"").append(i+1).append("\" width=\"").append(width).append("\" customWidth=\"1\"/>");}
@@ -14,6 +18,7 @@ public final class ResearchXlsx {
   for(int r=0;r<=rows.length();r++){s.append("<row r=\"").append(r+1).append("\" ht=\"").append(r==0?32:48).append("\" customHeight=\"1\">");for(int c=0;c<headers.length;c++){String text=r==0?headers[c]:rows.getJSONObject(r-1).optString(keys[c],"");if(text.length()>30000)text=text.substring(0,30000);s.append("<c r=\"").append(col(c)).append(r+1).append("\" t=\"inlineStr\" s=\"").append(r==0?1:2).append("\"><is><t xml:space=\"preserve\">").append(xml(text)).append("</t></is></c>");}s.append("</row>");}
   s.append("</sheetData><autoFilter ref=\"A1:").append(col(headers.length-1)).append(rows.length()+1).append("\"/></worksheet>");return s.toString();
  }
+ /** Writes contacts, groups and search logs as an XLSX workbook and closes the supplied output stream. */
  public static void write(JSONObject data,OutputStream output)throws Exception {
   try(ZipOutputStream z=new ZipOutputStream(output)){
    entry(z,"[Content_Types].xml","<?xml version=\"1.0\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/><Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/><Override PartName=\"/xl/worksheets/sheet2.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/><Override PartName=\"/xl/worksheets/sheet3.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/></Types>");

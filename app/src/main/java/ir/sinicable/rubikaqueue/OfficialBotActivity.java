@@ -27,6 +27,7 @@ public final class OfficialBotActivity extends Activity {
     private TextView status;
     private volatile boolean busy;
 
+    /** Builds the official-link and bot-test screen, excluding the token field from saved view state. */
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         ScrollView scroll = new ScrollView(this);
@@ -76,7 +77,8 @@ public final class OfficialBotActivity extends Activity {
         label(root, "توکن روی دیسک ذخیره نمی‌شود. پاسخ‌های خطا نباید شامل توکن باشند. ارسال به بات فقط پس از تأیید شما انجام می‌شود و به صف حساب شخصی متصل نیست.");
     }
 
-    private interface Operation { String run() throws Exception; }
+    private interface Operation { /** Performs a bot operation and returns the message to display, or throws on failure. */ String run() throws Exception; }
+    /** Runs one bot operation asynchronously and displays its result or a generic error without exception details. */
     private void execute(Operation operation) {
         if (busy) { Toast.makeText(this,"عملیات قبلی هنوز تمام نشده",Toast.LENGTH_SHORT).show();return; }
         busy=true;
@@ -90,6 +92,7 @@ public final class OfficialBotActivity extends Activity {
         });
     }
 
+    /** Confirms a single bot test message and applies the persisted 30-second local cooldown before sending. */
     private void confirmSend() {
         String token=tokenField.getText().toString().trim();
         String chat=chatField.getText().toString().trim();
@@ -112,6 +115,7 @@ public final class OfficialBotActivity extends Activity {
             })).show();
     }
 
+    /** Opens a fixed official HTTPS link in the browser and reports when no browser is available. */
     private void open(String url) {
         // Intents target fixed HTTPS links; the user signs in within their own browser.
         try {
@@ -121,10 +125,16 @@ public final class OfficialBotActivity extends Activity {
         }
     }
 
+    /** Converts density-independent dimensions to screen pixels. */
     private int dp(int size) { return (int)(size*getResources().getDisplayMetrics().density); }
+    /** Adds a right-aligned heading with the requested text size. */
     private void title(LinearLayout root,String text,int size){TextView t=new TextView(this);t.setText(text);t.setTextSize(size);t.setGravity(Gravity.RIGHT);t.setPadding(0,dp(12),0,dp(12));root.addView(t);}
+    /** Adds a descriptive text label to the supplied layout. */
     private void label(LinearLayout root,String text){TextView t=new TextView(this);t.setText(text);t.setTextSize(14);t.setPadding(0,dp(8),0,dp(8));root.addView(t);}
+    /** Adds and returns an editable field with the requested hint and input type. */
     private EditText field(LinearLayout root,String hint,int type){EditText t=new EditText(this);t.setHint(hint);t.setInputType(type);root.addView(t,new LinearLayout.LayoutParams(-1,-2));return t;}
+    /** Adds a button that runs the supplied job when clicked. */
     private void button(LinearLayout root,String caption,Runnable job){Button t=new Button(this);t.setAllCaps(false);t.setText(caption);t.setOnClickListener(view -> job.run());root.addView(t,new LinearLayout.LayoutParams(-1,-2));}
+    /** Interrupts background work and clears the token field during activity destruction. */
     @Override protected void onDestroy() { io.shutdownNow(); if (tokenField!=null)tokenField.setText(""); super.onDestroy(); }
 }

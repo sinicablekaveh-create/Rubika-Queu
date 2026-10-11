@@ -8,7 +8,9 @@ public class QueueService extends Service {
  public static volatile boolean running=false;
  private volatile boolean cancel=false;private Thread worker;private PowerManager.WakeLock wake;
  private static final int NOTICE=71;
+ /** Returns null because queue processing is started through intents and does not support binding. */
  @Override public IBinder onBind(Intent i){return null;}
+ /** Handles stop requests or starts one foreground queue worker while holding the operation gate. */
  @Override public int onStartCommand(Intent i,int flags,int id){
   if(i!=null&&"STOP".equals(i.getAction())){cancel=true;if(worker!=null)worker.interrupt();else stopSelf();return START_NOT_STICKY;}
   if(running)return START_NOT_STICKY;
@@ -20,13 +22,17 @@ public class QueueService extends Service {
   }catch(Exception e){running=false;OperationGate.release("queue");stopSelf();}
   return START_NOT_STICKY;
  }
+ /** Builds the ongoing queue notification with actions to open the app or stop processing. */
  Notification notification(String text){
   PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
   PendingIntent stop=PendingIntent.getService(this,1,new Intent(this,QueueService.class).setAction("STOP"),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
   return new Notification.Builder(this,"queue").setContentTitle("صف پیام روبیکا • آزمایشی").setContentText(text).setSmallIcon(R.drawable.icon).setOngoing(true).setContentIntent(open).addAction(new Notification.Action.Builder(null,"توقف",stop).build()).build();
  }
+ /** Updates the foreground queue notification with the supplied status text. */
  void notice(String s){getSystemService(NotificationManager.class).notify(NOTICE,notification(s));}
+ /** Persists the job and its progress note before updating the notification. */
  void checkpoint(JSONObject j,String text)throws Exception{j.put("note",text);JobStore.save(this,j);notice(text);}
+ /** Processes the saved account's queue with interval waits, bounded rate retries and durable outcome checkpoints; ambiguous sends require review. */
  private void runQueue(){
   JSONObject job=null;JSONObject current=null;boolean dispatch=false;
   try{
@@ -111,5 +117,6 @@ public class QueueService extends Service {
    catch(Exception ignored){}
   }finally{running=false;OperationGate.release("queue");if(wake!=null&&wake.isHeld())wake.release();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
  }
+ /** Requests worker cancellation and releases any held wake lock during service destruction. */
  @Override public void onDestroy(){cancel=true;if(worker!=null)worker.interrupt();if(wake!=null&&wake.isHeld())wake.release();super.onDestroy();}
 }

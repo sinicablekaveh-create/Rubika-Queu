@@ -8,15 +8,20 @@ import java.util.*;
 import javax.net.ssl.HttpsURLConnection;
 
 public class RubikaClient {
- public interface Transport {JSONObject exchange(String url,JSONObject body)throws Exception;}
- public static class ApiError extends IOException {public final String code;public ApiError(String s){super("پاسخ روبیکا: "+s);code=s;}}
+ public interface Transport {/** Exchanges JSON with an endpoint; a null body requests endpoint discovery without a payload. */ JSONObject exchange(String url,JSONObject body)throws Exception;}
+ public static class ApiError extends IOException {public final String code;/** Creates an API exception with a caller-sanitized status code for user display. */ public ApiError(String s){super("پاسخ روبیکا: "+s);code=s;}}
  public String auth=CryptoCore.secret(),guid="",phone="",endpoint="";
  public PrivateKey privateKey;
  private final Transport transport;
+ /** Creates a client using the default HTTPS transport and a fresh temporary session. */
  public RubikaClient(){this(new HttpTransport());}
+ /** Creates a client with the supplied transport for protocol exchanges. */
  public RubikaClient(Transport t){transport=t;}
+ /** Builds a JSON object from alternating string keys and values; callers must supply complete pairs. */
  public static JSONObject obj(Object... a)throws JSONException {JSONObject j=new JSONObject();for(int i=0;i<a.length;i+=2)j.put((String)a[i],a[i+1]);return j;}
+ /** Restricts an API status to displayable ASCII letters, digits, spaces, underscores and hyphens, capped at eighty characters. */
  public static String safeCode(String s){return s.replaceAll("[^A-Za-z0-9_ -]","").substring(0,Math.min(80,s.replaceAll("[^A-Za-z0-9_ -]","").length()));}
+ /** Discovers a preferred API endpoint, falls back to available entries and validates the selected URL. */
  public void discover()throws Exception {
   JSONObject d=transport.exchange("https://getdcmess.iranlms.ir/",null).getJSONObject("data");JSONObject apis=d.getJSONObject("API");
   String code=d.optString("default_api","");
@@ -24,10 +29,12 @@ public class RubikaClient {
   if(!apis.has(code)){Iterator<String> k=apis.keys();if(!k.hasNext())throw new IOException("سرور روبیکا پیدا نشد");code=k.next();}
   endpoint=apis.getString(code);validateEndpoint(endpoint);
  }
+ /** Rejects URLs outside the allowed Rubika/iranlms HTTPS domains, credentials or default/443 ports. */
  public static void validateEndpoint(String s)throws Exception {
   URL u=new URL(s);String h=u.getHost().toLowerCase(Locale.ROOT);
   if(!u.getProtocol().equals("https")||u.getUserInfo()!=null||(u.getPort()!=-1&&u.getPort()!=443)||!(h.endsWith(".iranlms.ir")||h.equals("iranlms.ir")||h.endsWith(".rubika.ir")||h.equals("rubika.ir")))throw new IOException("نشانی سرور معتبر نیست");
  }
+ /** Encrypts a protocol request, signs authenticated calls and returns data only after both response statuses report OK. */
  public JSONObject call(String method,JSONObject input,boolean temporary)throws Exception {
   if(endpoint.isEmpty())discover();
   JSONObject client=obj("app_name","Main","app_version","2.4.6","platform","PWA","package","m.rubika.ir","lang_code","fa");
@@ -40,7 +47,9 @@ public class RubikaClient {
   if(!response.optString("status").equals("OK")||!response.optString("status_det").equals("OK"))throw new ApiError(safeCode(response.optString("status_det",response.optString("status","UNKNOWN"))));
   JSONObject data=response.optJSONObject("data");if(data==null)throw new IOException("ساختار پاسخ روبیکا تغییر کرده است");return data;
  }
+ /** Stores the account phone and requests an SMS code using the optional second-factor password. */
  public JSONObject sendCode(String number,String password)throws Exception {phone=number;return call("sendCode",obj("phone_number",number,"pass_key",password.isEmpty()?JSONObject.NULL:password,"send_type","SMS"),true);}
+ /** Exchanges the login code and hash for a session secret and installs the account GUID and RSA private key. */
  public JSONObject signIn(String code,String hash)throws Exception {
   KeyPair keys=CryptoCore.generate();JSONObject r=call("signIn",obj("phone_code",code,"phone_number",phone,"phone_code_hash",hash,"public_key",CryptoCore.publicWire(keys.getPublic())),true);
   if(!r.optString("status").equals("OK"))throw new ApiError(safeCode(r.optString("status","SIGN_IN_FAILED")));
@@ -48,8 +57,11 @@ public class RubikaClient {
   JSONObject user=r.getJSONObject("user");String g=user.getString("user_guid");
   auth=a;privateKey=keys.getPrivate();guid=g;return r;
  }
+ /** Registers this client as an unofficial device using the authenticated session. */
  public void register()throws Exception {call("registerDevice",obj("token","","lang_code","fa","token_type","Firebase","app_version","PW_2.4.6","system_version","Android","device_model","Rubika Queue (unofficial)","device_hash","2"+Math.abs(guid.hashCode())),false);}
+ /** Fetches user information for the authenticated account. */
  public JSONObject me()throws Exception{return call("getUserInfo",new JSONObject(),false);}
+ /** Returns a group GUID only after checking group identity, available membership information and send permission. */
  public String groupTarget(String id)throws Exception {
   if(!id.startsWith("g0")||id.length()<12)throw new IOException("شناسه گروه معتبر نیست");
   JSONObject r=call("getGroupInfo",obj("group_guid",id),false),g=r.optJSONObject("group"),chat=r.optJSONObject("chat");
@@ -59,6 +71,7 @@ public class RubikaClient {
   boolean permitted=false;if(access!=null)for(int i=0;i<access.length();i++)if("SendMessages".equals(access.optString(i)))permitted=true;
   if(!permitted)throw new IOException("عضویت یا اجازه ارسال گروه تأیید نشد؛ در روبیکا بررسی کنید");return id;
  }
+ /** Adds an address-book contact and verifies its unique account against the phone; returns empty if none is found. */
  public String resolve(String number,String name)throws Exception {
   JSONObject r=call("addAddressBook",obj("phone",number,"first_name",name.isEmpty()?number:name,"last_name",""),false);
   LinkedHashSet<String> ids=new LinkedHashSet<>();collectIds(r,ids,0);
@@ -68,11 +81,13 @@ public class RubikaClient {
   if(u==null||!id.equals(u.optString("user_guid"))||!number.equals(Phones.normalize(u.optString("phone"))))throw new IOException("تطبیق شماره و حساب ممکن نشد؛ ارسال متوقف شد");
   return id;
  }
+ /** Collects distinct user GUIDs from nested JSON up to depth eight. */
  private static void collectIds(Object v,Set<String>s,int depth)throws JSONException {
   if(depth>8)return;
   if(v instanceof JSONObject){JSONObject o=(JSONObject)v;String id=o.optString("user_guid");if(id.startsWith("u")&&id.length()>12)s.add(id);Iterator<String> it=o.keys();while(it.hasNext())collectIds(o.get(it.next()),s,depth+1);}
   else if(v instanceof JSONArray){JSONArray a=(JSONArray)v;for(int i=0;i<a.length();i++)collectIds(a.get(i),s,depth+1);}
  }
+ /** Sends a message with the supplied request ID and returns an optional receipt ID; an empty ID still denotes server acceptance. */
  public String send(String to,String text,long randomId)throws Exception {
   JSONObject r=call("sendMessage",obj("object_guid",to,"text",text,"rnd",randomId),false);
   // call() has already verified BOTH status=OK and status_det=OK.
@@ -80,9 +95,12 @@ public class RubikaClient {
   // Empty string means server-accepted without a receipt ID, not delivery/read confirmation.
   return SendResponse.messageId(r,to,randomId);
  }
+ /** Serializes the account secret, private key, GUID and phone for storage by the encrypted vault. */
  public JSONObject session()throws Exception{return obj("auth",auth,"private",CryptoCore.privateEncoded(privateKey),"guid",guid,"phone",phone);}
+ /** Restores a client and RSA private key from previously decrypted session JSON. */
  public static RubikaClient restore(JSONObject s)throws Exception {RubikaClient c=new RubikaClient();c.auth=s.getString("auth");c.privateKey=CryptoCore.privateKey(s.getString("private"));c.guid=s.getString("guid");c.phone=s.getString("phone");return c;}
  static class HttpTransport implements Transport {
+  /** Exchanges JSON over validated HTTPS without redirects, limits replies to 4 MiB and maps HTTP 429 to an API rate error. */
   public JSONObject exchange(String endpoint,JSONObject body)throws Exception {
    validateEndpoint(endpoint);HttpsURLConnection c=(HttpsURLConnection)new URL(endpoint).openConnection();
    c.setInstanceFollowRedirects(false);c.setConnectTimeout(20000);c.setReadTimeout(25000);

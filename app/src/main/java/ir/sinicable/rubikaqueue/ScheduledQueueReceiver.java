@@ -11,6 +11,7 @@ import org.json.JSONObject;
 
 /** Starts a still-pending job only for the user's chosen date/time. */
 public class ScheduledQueueReceiver extends BroadcastReceiver {
+ /** Rearms schedules after system events or starts a matching due job, recording a note and notification if startup fails. */
  @Override public void onReceive(Context context,Intent intent){
   if(intent==null)return;
   String action=intent.getAction();

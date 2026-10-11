@@ -1,5 +1,6 @@
 import ir.sinicable.rubikaqueue.RetryController;
 public final class RetryControllerTests {
+ /** Checks backoff bounds across edge-case attempt counts and verifies the retry budget boundary. */
  public static void main(String[] args) {
   for(int attempt:new int[]{-1,0,1,7,8,100,Integer.MAX_VALUE}) {
    for(int i=0;i<1000;i++) {
