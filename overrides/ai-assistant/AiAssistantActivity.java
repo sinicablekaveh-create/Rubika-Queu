@@ -28,7 +28,8 @@ import java.util.concurrent.Executors;
 
 /** Opt-in AI drafting: browser handoff or user-owned HTTPS Ollama endpoint. */
 public final class AiAssistantActivity extends Activity {
-    private EditText draft, server, model;
+    private EditText draft, server, model, onlineGateway, onlineModel, gatewayToken;
+    private Button onlineGenerate;
     private TextView answer;
     private Button generate;
     private String availableSuggestion;
@@ -78,6 +79,19 @@ public final class AiAssistantActivity extends Activity {
         draft.setGravity(Gravity.TOP);
         label(root, "روش رایگان ۱: استفاده از ChatGPT در مرورگر با سهمیه حساب خودتان. متن پس از تأیید شما به کلیپ‌بورد کپی می‌شود؛ آن را خودتان در ChatGPT جای‌گذاری کنید.");
         button(root, "کپی متن و بازکردن ChatGPT", v -> openChatGpt());
+        label(root, "هوش مصنوعی آنلاین در برنامه: سرور واسط HTTPS سازگار با OpenAI را وارد کنید. اشتراک ChatGPT و ابزارهای حساب به برنامه منتقل نمی‌شوند. کلید اصلی ارائه‌دهنده باید فقط روی سرور واسط بماند.");
+        onlineGateway = field(root, "نشانی سرور واسط اختصاصی (https://ai.example.com)", "");
+        onlineGateway.setTextDirection(View.TEXT_DIRECTION_LTR);
+        onlineModel = field(root, "شناسه مدل مجاز روی سرور واسط", "gpt-4.1-mini");
+        onlineModel.setTextDirection(View.TEXT_DIRECTION_LTR);
+        gatewayToken = field(root, "توکن موقت سرور واسط (نه API Key شرکت ارائه‌دهنده)", "");
+        gatewayToken.setTextDirection(View.TEXT_DIRECTION_LTR);
+        gatewayToken.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        onlineGenerate = new Button(this);
+        onlineGenerate.setAllCaps(false);
+        onlineGenerate.setText("ویرایش آنلاین متن با هوش مصنوعی");
+        onlineGenerate.setOnClickListener(v -> askOnlineGateway());
+        root.addView(onlineGenerate, new LinearLayout.LayoutParams(-1, -2));
         label(root, "روش رایگان ۲: دریافت پاسخ داخل برنامه از مدل متن‌باز روی سرور شخصی خودتان. سرور باید HTTPS و دارای گواهی معتبر باشد؛ هیچ API Key تجاری لازم نیست.");
         server = field(root, "نشانی HTTPS سرور شخصی (مثلاً https://ai.example.com)", "");
         server.setTextDirection(View.TEXT_DIRECTION_LTR);
@@ -177,6 +191,52 @@ public final class AiAssistantActivity extends Activity {
                             answer.setText(result);
                             availableSuggestion = accepted ? result : null;
                             generate.setEnabled(true);
+                        }
+                    });
+                });
+            }).show();
+    }
+
+    /** Only the manually entered draft is sent, after an explicit confirmation. */
+    private void askOnlineGateway() {
+        final String content, gateway, selectedModel, token;
+        try {
+            content = AiPromptPolicy.prompt(draft.getText().toString());
+            gateway = onlineGateway.getText().toString();
+            selectedModel = AiPromptPolicy.model(onlineModel.getText().toString());
+            token = AiOnlineClient.gatewayToken(gatewayToken.getText().toString());
+            AiOnlineClient.gatewayUrl(gateway);
+        } catch (IllegalArgumentException error) {
+            Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("ارسال متن به هوش مصنوعی آنلاین")
+            .setMessage("فقط متن همین کادر به سرور واسط انتخابی شما فرستاده می‌شود. " +
+                        "ممکن است سرور واسط آن را به ارائه‌دهنده مدل بفرستد. هیچ پیام، " +
+                        "مخاطب، نشست روبیکا یا صف ارسال به‌طور خودکار منتقل نمی‌شود. ادامه می‌دهید؟")
+            .setNegativeButton("لغو", null)
+            .setPositiveButton("ارسال متن", (d, which) -> {
+                onlineGenerate.setEnabled(false);
+                availableSuggestion = null;
+                answer.setText("در حال ارتباط با هوش مصنوعی آنلاین…");
+                io.execute(() -> {
+                    String response;
+                    boolean success;
+                    try {
+                        response = AiOnlineClient.complete(gateway, selectedModel, token, content);
+                        success = true;
+                    } catch (Exception error) {
+                        response = "پاسخی دریافت نشد. نشانی HTTPS، توکن و مدل سرور واسط را بررسی کنید.";
+                        success = false;
+                    }
+                    final String displayed = response;
+                    final boolean accepted = success;
+                    runOnUiThread(() -> {
+                        if (!isFinishing() && !isDestroyed()) {
+                            answer.setText(displayed);
+                            availableSuggestion = accepted ? displayed : null;
+                            onlineGenerate.setEnabled(true);
                         }
                     });
                 });
