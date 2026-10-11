@@ -37,6 +37,9 @@ jobs:
 
     # Full Android source extraction, lint and APK build are covered by build-apk.yml.
     # The root does not contain a runnable Gradle wrapper or expanded Android sources.
+    - name: Test online development gateway
+      run: node tests/online-development-worker.test.mjs
+
     - name: Test discovery ranking
       run: |
         mkdir -p "$RUNNER_TEMP/discovery-tests"

@@ -38,6 +38,6 @@ replacement = (
 )
 s = s.replace(result_anchor, replacement, 1)
 main.write_text(s, encoding="utf-8")
-for name in ("AiAssistantActivity.java", "AiPromptPolicy.java"):
+for name in ("AiAssistantActivity.java", "AiPromptPolicy.java", "AiOnlineClient.java", "AiDeveloperClient.java"):
     shutil.copyfile(Path("overrides/ai-assistant") / name, base / name)
 print("Opt-in AI drafting assistant installed without modifying message queue.")

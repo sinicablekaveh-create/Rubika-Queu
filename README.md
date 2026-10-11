@@ -50,3 +50,14 @@ Explicit rate rejections now increase the retry delay beyond the old fifth-retry
 ## Automatic topic-based group discovery (opt-in)
 
 The **کشف هوشمند گروه‌ها** screen accepts comma-separated Persian topics, for example `برق صنعتی، سینی کابل، نردبان کابل`. One explicit search automatically looks up up to eight focused topics through the existing discovery engine, ranks real results, and caches identified groups per signed-in account. The optional HTTPS Ollama integration only expands search phrases with explicit confirmation; it is not required for basic multi-topic search. A running search and its progress survive screen rotation. Group links and GUIDs are reconciled in the local cache. No automatic group joining, contact extraction, or messages are performed. See [AI discovery](docs/ai-discovery.md).
+
+## Optional online AI inside the app
+
+The drafting assistant can now call a **user-owned authenticated HTTPS gateway**
+for cloud model suggestions and show replies directly inside Android, while the
+existing browser handoff and Ollama modes remain available. No ChatGPT web
+session, saved conversations, or ChatGPT plugins are imported into the APK.
+Provider API keys belong **only on the server**; a short-lived gateway token is
+entered in the UI and is not saved by the app. The draft is sent only after
+confirmation, and AI never sends Rubika messages or updates code automatically.
+See [Online AI gateway](docs/ONLINE_AI_GATEWAY.md) for deployment and testing.
