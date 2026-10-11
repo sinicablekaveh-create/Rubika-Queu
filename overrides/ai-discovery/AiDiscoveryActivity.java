@@ -186,7 +186,16 @@ public final class AiDiscoveryActivity extends Activity {
             String note = "";
             if (!server.isEmpty()) {
                 try {
-                    suggested = AiDiscoveryClient.expand(server, model, q);
+                    // The Ollama client echoes the full original query for compatibility.
+                    // Typed terms already represent it, so it must not consume the AI budget.
+                    List<String> suggestionsOnly = new ArrayList<>();
+                    String originalKey = DiscoveryRanking.normalize(q);
+                    for (String term : AiDiscoveryClient.expand(server, model, q)) {
+                        if (!originalKey.equals(DiscoveryRanking.normalize(term))) {
+                            suggestionsOnly.add(term);
+                        }
+                    }
+                    suggested = suggestionsOnly.toArray(new String[0]);
                 } catch (Exception error) {
                     if (task.stopped()) throw new InterruptedException("جست‌وجو متوقف شد");
                     note = "AI در دسترس نبود؛ جست‌وجوی اصلی انجام شد.\n";
@@ -214,7 +223,7 @@ public final class AiDiscoveryActivity extends Activity {
             if (task.stopped()) throw new InterruptedException("جست‌وجو متوقف شد");
             JSONArray groups = data.getJSONArray("groups");
             try (AiDiscoveryStore store = new AiDiscoveryStore(task.context)) {
-                store.save(client.guid, q, groups);
+                store.save(client.guid, q, groups, expanded);
             }
             return note + ranked(q, groups, expanded);
         } finally {
@@ -279,7 +288,9 @@ public final class AiDiscoveryActivity extends Activity {
         worker.submit(() -> {
             RubikaClient client = account(worker.context);
             try (AiDiscoveryStore store = new AiDiscoveryStore(worker.context)) {
-                return history ? store.history(client.guid) : ranked(q, store.groups(client.guid));
+                if (history) return store.history(client.guid);
+                AiDiscoveryStore.SearchContext context = store.searchContext(client.guid, q);
+                return ranked(context.query, store.groups(client.guid), context.suggestions);
             }
         });
     }
