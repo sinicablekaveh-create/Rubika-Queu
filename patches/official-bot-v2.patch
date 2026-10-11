@@ -1,0 +1,111 @@
+diff --git a/app/src/main/java/ir/sinicable/rubikaqueue/BotUpdatesPolicy.java b/app/src/main/java/ir/sinicable/rubikaqueue/BotUpdatesPolicy.java
+new file mode 100644
+index 0000000..f721ba8
+--- /dev/null
++++ b/app/src/main/java/ir/sinicable/rubikaqueue/BotUpdatesPolicy.java
+@@ -0,0 +1,23 @@
++package ir.sinicable.rubikaqueue;
++
++/** Manual Bot API read limits; unrelated to personal-account messaging. */
++public final class BotUpdatesPolicy {
++    private BotUpdatesPolicy() {}
++
++    /** Limit an explicit one-shot getUpdates preview to 1..10 records. */
++    public static int validateLimit(int limit) {
++        if (limit < 1 || limit > 10) throw new IllegalArgumentException("limit must be 1..10");
++        return limit;
++    }
++
++    /** Cursor is opaque. Reject control characters and excessively long values. */
++    public static String validateOffset(String value) {
++        if (value == null || value.isEmpty()) return null;
++        if (value.length() > 512) throw new IllegalArgumentException("offset_id too long");
++        for (int i = 0; i < value.length(); i++) {
++            char c = value.charAt(i);
++            if (Character.isISOControl(c)) throw new IllegalArgumentException("invalid offset_id");
++        }
++        return value;
++    }
++}
+diff --git a/app/src/main/java/ir/sinicable/rubikaqueue/OfficialBotActivity.java b/app/src/main/java/ir/sinicable/rubikaqueue/OfficialBotActivity.java
+index b9bbbd5..101b101 100644
+--- a/app/src/main/java/ir/sinicable/rubikaqueue/OfficialBotActivity.java
++++ b/app/src/main/java/ir/sinicable/rubikaqueue/OfficialBotActivity.java
+@@ -65,12 +65,42 @@ public final class OfficialBotActivity extends Activity {
+                 return "بات پاسخ داد: " + bot.optString("username", bot.optString("first_name","نامشخص"));
+             });
+         });
++        button(root, "بررسی چت بات (getChat)", () -> {
++            final String token = tokenField.getText().toString().trim();
++            final String chat = chatField.getText().toString().trim();
++            execute(() -> {
++                JSONObject response = new OfficialBotApi(token).getChat(chat);
++                JSONObject data = response.optJSONObject("data");
++                JSONObject info = data == null ? null : data.optJSONObject("chat");
++                if (info == null) return "پاسخ دریافت شد؛ اطلاعات چت را در روبیکا بررسی کنید";
++                return "چت بات شناسایی شد: " + info.optString("type", "نوع نامشخص");
++            });
++        });
++        button(root, "دریافت ۱۰ رویداد بات (getUpdates)", () -> {
++            final String token = tokenField.getText().toString().trim();
++            execute(() -> {
++                long now = System.currentTimeMillis();
++                long last = getPreferences(0).getLong("bot_updates_last", 0);
++                if (now - last < 30000L) return "برای بررسی مجدد رویدادها حداقل ۳۰ ثانیه صبر کنید";
++                if (!getPreferences(0).edit().putLong("bot_updates_last", now).commit()) {
++                    throw new IOException("ثبت زمان بررسی ناموفق بود");
++                }
++                JSONObject response = new OfficialBotApi(token).getUpdates(10, null);
++                JSONObject data = response.optJSONObject("data");
++                org.json.JSONArray updates = data == null ? null : data.optJSONArray("updates");
++                if (updates == null) updates = response.optJSONArray("updates");
++                if (updates == null) return "پاسخ دریافت شد؛ فهرست رویدادها موجود نیست";
++                return "تعداد رویدادهای بات: " + updates.length()
++                        + " — محتوای پیام‌ها در این صفحه نمایش داده یا ذخیره نمی‌شود";
++            });
++        });
+         button(root, "ارسال یک پیام آزمایشی", this::confirmSend);
+         status = new TextView(this);
+         status.setText("آماده؛ هیچ درخواستی ارسال نشده است");
+         status.setTextSize(15);
+         status.setPadding(0,dp(18),0,dp(18));
+         root.addView(status);
++        label(root, "getChat و getUpdates فقط پس از لمس دکمه اجرا می‌شوند؛ بررسی رویدادها حداکثر هر ۳۰ ثانیه است و هیچ متن پیام دریافتی ذخیره یا نمایش داده نمی‌شود.");
+         label(root, "توکن روی دیسک ذخیره نمی‌شود. پاسخ‌های خطا نباید شامل توکن باشند. ارسال به بات فقط پس از تأیید شما انجام می‌شود و به صف حساب شخصی متصل نیست.");
+     }
+ 
+diff --git a/app/src/main/java/ir/sinicable/rubikaqueue/OfficialBotApi.java b/app/src/main/java/ir/sinicable/rubikaqueue/OfficialBotApi.java
+index 22b14ba..5fa27af 100644
+--- a/app/src/main/java/ir/sinicable/rubikaqueue/OfficialBotApi.java
++++ b/app/src/main/java/ir/sinicable/rubikaqueue/OfficialBotApi.java
+@@ -45,9 +45,29 @@ public final class OfficialBotApi {
+         return call("sendMessage", payload);
+     }
+ 
++    /** POST /getChat: read-only metadata lookup for one explicitly entered chat. */
++    public JSONObject getChat(String chatId) throws Exception {
++        if (chatId == null || chatId.trim().isEmpty() || chatId.length() > 180) {
++            throw new IllegalArgumentException("شناسه چت معتبر نیست");
++        }
++        JSONObject payload = new JSONObject();
++        payload.put("chat_id", chatId.trim());
++        return call("getChat", payload);
++    }
++
++    /** POST /getUpdates: one manual, read-only request; no background polling. */
++    public JSONObject getUpdates(int limit, String offsetId) throws Exception {
++        JSONObject payload = new JSONObject();
++        payload.put("limit", BotUpdatesPolicy.validateLimit(limit));
++        String offset = BotUpdatesPolicy.validateOffset(offsetId);
++        if (offset != null) payload.put("offset_id", offset);
++        return call("getUpdates", payload);
++    }
++
+     private JSONObject call(String method, JSONObject payload) throws Exception {
+         // Methods are fixed constants; no untrusted URL or host can be supplied.
+-        if (!"getMe".equals(method) && !"sendMessage".equals(method)) {
++        if (!"getMe".equals(method) && !"sendMessage".equals(method)
++                && !"getChat".equals(method) && !"getUpdates".equals(method)) {
+             throw new IllegalArgumentException("متد پشتیبانی نمی‌شود");
+         }
+         HttpURLConnection con = null;

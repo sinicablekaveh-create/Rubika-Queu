@@ -2,6 +2,8 @@ name: Build Rubika Queu Test APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
 
@@ -25,6 +27,15 @@ jobs:
           unzip -o -q source/Rubika-Queu-v1.1-personal-queue-source.zip -d "$RUNNER_TEMP/rubika-src"
           cp -a "$RUNNER_TEMP/rubika-src/app/src/main/java" app/src/main/
           cp -a "$RUNNER_TEMP/rubika-src/app/src/main/assets" app/src/main/
+
+      - name: Apply official Bot API v2 patch to extracted source
+        run: |
+          set -euo pipefail
+          git apply --check patches/official-bot-v2.patch
+          git apply patches/official-bot-v2.patch
+
+      - name: Fix legacy orientation constants for Android lint
+        run: python3 scripts/fix-mainactivity-orientation.py
 
       - name: Verify real application source
         run: |
@@ -50,6 +61,15 @@ jobs:
           mkdir -p "$RUNNER_TEMP/retry-tests"
           javac -d "$RUNNER_TEMP/retry-tests" "$src/app/src/main/java/ir/sinicable/rubikaqueue/RetryBackoff.java" "$src/tests/RetryBackoffTests.java"
           java -cp "$RUNNER_TEMP/retry-tests" ir.sinicable.rubikaqueue.RetryBackoffTests
+
+      - name: Test manual Bot API update preview limits
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bot-tests"
+          javac -d "$RUNNER_TEMP/bot-tests" \
+            app/src/main/java/ir/sinicable/rubikaqueue/BotUpdatesPolicy.java \
+            tests/BotUpdatesPolicyTests.java
+          java -cp "$RUNNER_TEMP/bot-tests" ir.sinicable.rubikaqueue.BotUpdatesPolicyTests
 
       - name: Install Android platform from runner SDK
         run: |
@@ -80,7 +100,10 @@ jobs:
           RUBIKA_TEST_KEY_PASSWORD: ${{ secrets.RUBIKA_TEST_KEY_PASSWORD }}
         run: |
           gradle wrapper --gradle-version 8.9
-          ./gradlew --no-daemon --max-workers=4 assembleDebug
+          if ! ./gradlew --no-daemon --max-workers=4 lintDebug assembleDebug; then
+            find app/build -name 'lint-results-debug.txt' -type f -print -exec cat {} +
+            exit 1
+          fi
 
       - name: Verify APK signature and zip alignment
         run: |
