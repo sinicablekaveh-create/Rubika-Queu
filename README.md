@@ -50,3 +50,12 @@ Explicit rate rejections now increase the retry delay beyond the old fifth-retry
 ## Automatic topic-based group discovery (opt-in)
 
 The **کشف هوشمند گروه‌ها** screen accepts comma-separated Persian topics, for example `برق صنعتی، سینی کابل، نردبان کابل`. One explicit search automatically looks up up to eight focused topics through the existing discovery engine, ranks real results, and caches identified groups per signed-in account. The optional HTTPS Ollama integration only expands search phrases with explicit confirmation; it is not required for basic multi-topic search. A running search and its progress survive screen rotation. Group links and GUIDs are reconciled in the local cache. No automatic group joining, contact extraction, or messages are performed. See [AI discovery](docs/ai-discovery.md).
+
+## AI-assisted development workflow
+
+GitHub Actions can optionally generate **draft development PRs** from an explicit
+maintainer task using online Codex. It requires a separately configured OpenAI
+Platform API key; a ChatGPT website login is not an API credential. Generated
+changes are restricted to assistant/discovery overlays, tests and documentation,
+and must be reviewed before privileged APK builds or merges. See
+[Automated development](docs/AUTOMATED_DEVELOPMENT.md).
