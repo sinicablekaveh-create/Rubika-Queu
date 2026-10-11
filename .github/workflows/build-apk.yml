@@ -34,6 +34,9 @@ jobs:
           git apply --check patches/official-bot-v2.patch
           git apply patches/official-bot-v2.patch
 
+      - name: Fix legacy orientation constants for Android lint
+        run: python3 scripts/fix-mainactivity-orientation.py
+
       - name: Verify real application source
         run: |
           set -euo pipefail
@@ -97,7 +100,10 @@ jobs:
           RUBIKA_TEST_KEY_PASSWORD: ${{ secrets.RUBIKA_TEST_KEY_PASSWORD }}
         run: |
           gradle wrapper --gradle-version 8.9
-          ./gradlew --no-daemon --max-workers=4 lintDebug assembleDebug
+          if ! ./gradlew --no-daemon --max-workers=4 lintDebug assembleDebug; then
+            find app/build -name 'lint-results-debug.txt' -type f -print -exec cat {} \\;
+            exit 1
+          fi
 
       - name: Verify APK signature and zip alignment
         run: |
