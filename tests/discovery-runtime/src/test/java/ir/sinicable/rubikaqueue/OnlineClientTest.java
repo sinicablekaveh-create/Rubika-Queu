@@ -16,6 +16,12 @@ public final class OnlineClientTest {
                 AiOnlineClient.gatewayUrl("https://ai.example.com/"));
         rejects(() -> AiOnlineClient.gatewayUrl("http://ai.example.com"));
         rejects(() -> AiOnlineClient.gatewayUrl("https://api.openai.com"));
+        rejects(() -> AiOnlineClient.gatewayUrl("https://chatgpt.com"));
+        rejects(() -> AiOnlineClient.gatewayUrl("https://chatgpt.com/"));
+        rejects(() -> AiOnlineClient.gatewayUrl("https://sub.chatgpt.com"));
+        rejects(() -> AiOnlineClient.gatewayUrl("https://platform.openai.com"));
+        assertEquals("https://chatgpt.example.com/v1/chat/completions",
+                AiOnlineClient.gatewayUrl("https://chatgpt.example.com"));
         rejects(() -> AiOnlineClient.gatewayUrl("https://someone:password@ai.example.com"));
     }
 
@@ -46,5 +52,14 @@ public final class OnlineClientTest {
             AiOnlineClient.extract("{\"choices\":[{\"message\":{\"content\":\"ناتمام\"},\"finish_reason\":\"length\"}]}");
             fail("Truncated response should fail");
         } catch (java.io.IOException expected) { /* good */ }
+        for (String reason : new String[]{"content_filter", "tool_calls", "function_call"}) {
+            try {
+                AiOnlineClient.extract(new JSONObject()
+                        .put("choices", new org.json.JSONArray().put(new JSONObject()
+                                .put("finish_reason", reason)
+                                .put("message", new JSONObject().put("content", "unsafe")))).toString());
+                fail("Non-final response should fail: " + reason);
+            } catch (java.io.IOException expected) { /* good */ }
+        }
     }
 }
