@@ -48,3 +48,10 @@ jobs:
 
     - name: Test discovery cache and AI client
       run: gradle --no-daemon --max-workers=4 -p tests/discovery-runtime test
+
+    - name: Test dependency-free plugin components
+      run: |
+        set -euo pipefail
+        mkdir -p "$RUNNER_TEMP/plugin-tests"
+        javac -d "$RUNNER_TEMP/plugin-tests" overrides/plugin-system/*.java tests/PluginSystemTests.java
+        java -cp "$RUNNER_TEMP/plugin-tests" ir.sinicable.rubikaqueue.PluginSystemTests
