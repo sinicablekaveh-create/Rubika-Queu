@@ -1,5 +1,6 @@
 package ir.sinicable.rubikaqueue;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /** Deterministic, synchronous steps with bounded retries; no external worker required. */
@@ -34,13 +35,17 @@ public final class WorkflowEngine {
         if (steps == null || maxAttempts < 1 || maxAttempts > 5) {
             throw new IllegalArgumentException("Steps required; maxAttempts must be 1..5");
         }
-        Object current = initial;
-        int attempts = 0;
-        String currentStep = null;
-        for (Step step : steps) {
+        // Validate a stable snapshot before any step can cause side effects.
+        List<Step> planned = new ArrayList<>(steps);
+        for (Step step : planned) {
             if (step == null || step.id() == null || step.id().trim().isEmpty()) {
                 throw new IllegalArgumentException("Invalid workflow step");
             }
+        }
+        Object current = initial;
+        int attempts = 0;
+        String currentStep = null;
+        for (Step step : planned) {
             currentStep = step.id();
             Exception last = null;
             boolean completed = false;
@@ -55,6 +60,9 @@ public final class WorkflowEngine {
                     break;
                 } catch (Exception failure) {
                     last = failure;
+                    if (cancellation != null && cancellation.cancelled()) {
+                        return new Result(false, true, currentStep, attempts, current, failure);
+                    }
                 }
             }
             if (!completed) return new Result(false, false, currentStep, attempts, current, last);
