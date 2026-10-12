@@ -72,6 +72,9 @@ jobs:
       - name: Test online development gateway
         run: node tests/online-development-worker.test.mjs
 
+      - name: Test personal desktop gateway authorization
+        run: node tests/personal-gateway-auth.test.mjs
+
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
