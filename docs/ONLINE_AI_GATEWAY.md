@@ -174,11 +174,14 @@ requires a separate confirmation in Android. File writes replace the named
 file; command execution uses the selected device's shell. Device IDs can be
 obtained with the list button.
 
-Set `DESKTOP_MCP_ACCESS_TOKEN` as a deployment secret after separately authorizing
-your gateway as an OAuth client for Remote Desktop Commander. This is an OAuth
+For standalone Worker deployment, set `DESKTOP_MCP_ACCESS_TOKEN` as a deployment
+secret after separately authorizing your gateway as an OAuth client for Remote
+Desktop Commander. This is an OAuth
 access token for that MCP service, **not** the token of the ChatGPT connector in
-this conversation. The example does not implement OAuth login or token refresh:
-expired tokens must be replaced through your approved OAuth flow. Do not copy
+this conversation. For a personal Windows server, the separate OAuth helper and
+Node adapter in `docs/PERSONAL_GATEWAY_DEPLOYMENT.md` authorize and refresh the
+token outside the Worker. The standalone Worker does not implement OAuth login
+or token refresh. Do not copy
 ChatGPT session credentials or try to extract a connector token. The bridge is
 disabled when either desktop secret is absent. The desktop OAuth token and
 gateway token stay on the server; Android receives only the separate gateway
