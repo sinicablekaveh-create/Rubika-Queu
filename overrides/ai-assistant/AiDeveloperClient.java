@@ -1,6 +1,7 @@
 package ir.sinicable.rubikaqueue;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
 import javax.net.ssl.HttpsURLConnection;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -79,6 +80,31 @@ public final class AiDeveloperClient {
     }
     public static String status(String server, String token) throws Exception {
         return statusAnswer(exchange(server, token, "/v1/dev/status", null, 200));
+    }
+    static String desktopAnswer(String json) throws Exception {
+        JSONObject result = new JSONObject(json).getJSONObject("result");
+        JSONArray content = result.optJSONArray("content");
+        if (content == null) throw new IOException("پاسخ دستگاه معتبر نیست");
+        StringBuilder answer = new StringBuilder();
+        for (int i = 0; i < content.length(); i++) {
+            JSONObject block = content.optJSONObject(i);
+            if (block != null && "text".equals(block.optString("type"))) {
+                if (answer.length() > 0) answer.append('\n');
+                answer.append(block.optString("text"));
+            }
+        }
+        if (result.optBoolean("isError") || answer.length() == 0 || answer.length() > 60000)
+            throw new IOException("عملیات دستگاه ناموفق یا پاسخ نامعتبر است");
+        return answer.toString();
+    }
+    public static String desktop(String server, String token, String tool, JSONObject arguments)
+            throws Exception {
+        if (!("list_devices".equals(tool) || "list_directory".equals(tool) ||
+                "read_file".equals(tool) || "write_file".equals(tool) ||
+                "start_process".equals(tool)))
+            throw new IllegalArgumentException("عملیات دستگاه مجاز نیست");
+        return desktopAnswer(exchange(server, token, "/v1/desktop/call",
+                new JSONObject().put("tool", tool).put("arguments", arguments), 200));
     }
     private static String exchange(String root, String token, String route, JSONObject payload,
             int expectedStatus) throws Exception {

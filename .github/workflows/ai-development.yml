@@ -1,0 +1,168 @@
+name: AI-Assisted Development Proposal
+
+# Manually start a bounded AI coding task. Generated code is never merged automatically.
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Describe one concrete change for Rubika-Queu'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-development-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    name: Generate reviewed diff (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      patch: ${{ steps.codex.outputs.final-message }}
+    steps:
+      - name: Checkout audited base
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      # This is deliberately the LAST step of the job: untrusted model output
+      # is transferred as data, not executed on the credential-bearing runner.
+      - name: Generate a narrow patch with Codex
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ':read-only'
+          safety-strategy: drop-sudo
+          prompt: |
+            You are preparing a REVIEWABLE code change for Rubika-Queu.
+            Output ONLY a valid, plain-text "git diff" patch starting with
+            "diff --git a/..." (no Markdown fences, no commentary).
+            Do not run code or modify files. Make a small additive change only.
+            You may edit/create at most 4 UTF-8 text files within:
+              overrides/ai-discovery/*.java
+              overrides/ai-assistant/*.java
+              tests/*.java
+              tests/discovery-runtime/src/test/java/ir/sinicable/rubikaqueue/*.java
+              docs/*.md
+              README.md
+            Never touch workflows, scripts, signing, authentication, the source
+            ZIP bundles, network credentials, messaging transport or permissions.
+            Do not remove features. Include a focused test if modifying logic.
+            Never include API keys or external shell commands in the response.
+            If the request cannot be handled safely within these limits,
+            output exactly "NO_SAFE_CHANGE".
+            User-approved development task:
+            ${{ inputs.task }}
+
+  draft_pr:
+    name: Validate patch and open draft PR
+    needs: propose
+    if: ${{ needs.propose.outputs.patch != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Validate and apply inert generated patch
+        env:
+          CODEX_PATCH: ${{ needs.propose.outputs.patch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+          import subprocess
+
+          patch = os.environ.get("CODEX_PATCH", "")
+          if not patch.startswith("diff --git a/") or len(patch.encode("utf-8")) > 64000:
+              raise SystemExit("No acceptable unified diff from the model.")
+          if any(marker in patch for marker in (
+              "GIT binary patch", "Binary files ", "deleted file mode",
+              "old mode ", "new mode ", "rename from ", "rename to ",
+              "copy from ", "copy to ", "+++ /dev/null",
+              "new file mode 120000", "new file mode 100755"
+          )):
+              raise SystemExit("Binary, deletion, mode and rename changes are prohibited.")
+          for mode in re.findall(r"^new file mode (.+)$", patch, re.M):
+              if mode != "100644":
+                  raise SystemExit("Only regular non-executable new files are permitted.")
+
+          files = re.findall(r"^diff --git a/([^\n ]+) b/([^\n ]+)$", patch, re.M)
+          if not files or len(files) > 4 or len(files) != patch.count("diff --git "):
+              raise SystemExit("Invalid patch file list or too many changed files.")
+
+          allow = re.compile(
+              r"(?:overrides/(?:ai-discovery|ai-assistant)/[A-Za-z0-9_]+\.java"
+              r"|tests/[A-Za-z0-9_]+\.java"
+              r"|tests/discovery-runtime/src/test/java/ir/sinicable/rubikaqueue/[A-Za-z0-9_]+\.java"
+              r"|docs/[A-Za-z0-9_-]+\.md|README\.md)"
+          )
+          names = set()
+          for source, dest in files:
+              if source != dest or not allow.fullmatch(source):
+                  raise SystemExit("Disallowed file path: " + source)
+              names.add(source)
+          if len(names) != len(files):
+              raise SystemExit("Duplicate file patch blocks are prohibited.")
+
+          path = pathlib.Path("codex-proposal.patch")
+          path.write_text(patch, encoding="utf-8")
+          subprocess.run(["git", "apply", "--check", str(path)], check=True)
+          subprocess.run(["git", "apply", str(path)], check=True)
+          path.unlink()
+          subprocess.run(["git", "diff", "--check"], check=True)
+          changed = subprocess.check_output(
+              ["git", "status", "--porcelain", "--untracked-files=all"], text=True
+          )
+          if not changed.strip():
+              raise SystemExit("Patch produced no repository changes.")
+          actual = set(subprocess.check_output(
+              ["git", "diff", "--name-only", "--no-ext-diff"], text=True
+          ).splitlines())
+          actual.update(subprocess.check_output(
+              ["git", "ls-files", "--others", "--exclude-standard"], text=True
+          ).splitlines())
+          if actual != names or any(not allow.fullmatch(name) for name in actual):
+              raise SystemExit("Applied paths differ from the validated patch list.")
+          print("Proposed paths:", ", ".join(sorted(names)))
+          PY
+
+      # GitHub token is scoped to this separate job, after patch validation.
+      # PR stays in draft until a maintainer reviews the code and CI.
+      - name: Open draft pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ github.token }}
+          base: main
+          branch: codex/proposal-${{ github.run_id }}
+          draft: true
+          commit-message: 'chore: stage AI-generated change for review'
+          title: 'AI development proposal (manual review required)'
+          body: |
+            Produced by the manually invoked AI-Assisted Development workflow.
+            This is an **untrusted code proposal**, not an approved release.
+            Examine the diff, review Java tests, and confirm CI before marking
+            ready or merging. No authentication or message-sending code may change.
+            Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          add-paths: |
+            overrides/ai-discovery/**
+            overrides/ai-assistant/**
+            tests/**
+            docs/**
+            README.md

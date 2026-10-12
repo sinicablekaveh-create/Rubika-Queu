@@ -3,6 +3,8 @@
 // or GitHub credentials to Android. Only a user-confirmed POST can dispatch CI.
 const DEV_REPO = "sinicablekaveh-create/Rubika-Queu";
 const DEV_WORKFLOW = "ai-development.yml";
+const DESKTOP_MCP_URL = "https://mcp.desktopcommander.app/mcp";
+const DESKTOP_TOOLS = new Set(["list_devices", "list_directory", "read_file", "write_file", "start_process"]);
 const jsonReply = (value, status = 200) => new Response(JSON.stringify(value), {
   status,
   headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
@@ -31,6 +33,66 @@ async function safeBody(request) {
     throw new Error("Request too large");
   }
   return JSON.parse(await boundedText(request, 12000));
+}
+async function mcpMessage(response) {
+  if (!response.ok) throw new Error("Desktop MCP unavailable");
+  const raw = await boundedText(response, 65536);
+  const type = response.headers.get("Content-Type") || "";
+  if (type.includes("text/event-stream")) {
+    const data = raw.split(/\r?\n/).filter(line => line.startsWith("data:")).map(line => line.slice(5).trim());
+    const message = data.find(line => line.startsWith("{"));
+    if (!message) throw new Error("Invalid desktop MCP reply");
+    return JSON.parse(message);
+  }
+  return JSON.parse(raw);
+}
+async function desktopCall(env, name, args) {
+  if (!env.DESKTOP_MCP_ACCESS_TOKEN) throw new Error("Desktop MCP not configured");
+  const headers = {
+    Authorization: "Bearer " + env.DESKTOP_MCP_ACCESS_TOKEN,
+    "Content-Type": "application/json",
+    Accept: "application/json, text/event-stream",
+    "MCP-Protocol-Version": "2025-06-18"
+  };
+  const send = async (message) => fetch(DESKTOP_MCP_URL, {
+    method: "POST", headers, body: JSON.stringify(message), redirect: "error",
+    signal: AbortSignal.timeout(15000)
+  });
+  const initialized = await send({ jsonrpc: "2.0", id: 1, method: "initialize", params: {
+    protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "rubika-ai-gateway", version: "1.0" }
+  }});
+  const hello = await mcpMessage(initialized);
+  if (hello.error || !hello.result) throw new Error("Desktop MCP initialization failed");
+  const session = initialized.headers.get("Mcp-Session-Id");
+  if (session) headers["Mcp-Session-Id"] = session;
+  const notice = await send({ jsonrpc: "2.0", method: "notifications/initialized" });
+  if (!notice.ok) throw new Error("Desktop MCP initialization failed");
+  const reply = await mcpMessage(await send({ jsonrpc: "2.0", id: 2, method: "tools/call",
+    params: { name, arguments: args } }));
+  if (reply.error || !reply.result) throw new Error("Desktop MCP tool failed");
+  return reply.result;
+}
+async function desktop(request, env, pathname) {
+  if (!env.DESKTOP_GATEWAY_TOKEN || env.DESKTOP_GATEWAY_TOKEN.length < 24 ||
+      request.headers.get("Authorization") !== "Bearer " + env.DESKTOP_GATEWAY_TOKEN) {
+    return jsonReply({ error: "Unauthorized or unconfigured" }, 401);
+  }
+  if (pathname !== "/v1/desktop/call") return jsonReply({ error: "Not found" }, 404);
+  if (request.method !== "POST") return jsonReply({ error: "Method not allowed" }, 405);
+  let input;
+  try { input = await safeBody(request); }
+  catch (_) { return jsonReply({ error: "Invalid or oversized JSON" }, 400); }
+  if (!DESKTOP_TOOLS.has(input?.tool) || !input.arguments ||
+      typeof input.arguments !== "object" || Array.isArray(input.arguments)) {
+    return jsonReply({ error: "Unsupported desktop operation" }, 400);
+  }
+  if (!env.DESKTOP_MCP_ACCESS_TOKEN)
+    return jsonReply({ error: "Desktop MCP not configured" }, 503);
+  try {
+    return jsonReply({ result: await desktopCall(env, input.tool, input.arguments) });
+  } catch (_) {
+    return jsonReply({ error: "Desktop operation failed; check the connection and permissions" }, 502);
+  }
 }
 async function development(request, env, pathname) {
   if (!env.DEV_GATEWAY_TOKEN || env.DEV_GATEWAY_TOKEN.length < 24
@@ -135,6 +197,7 @@ async function development(request, env, pathname) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname.startsWith("/v1/desktop/")) return desktop(request, env, url.pathname);
     if (["/v1/dev/chat", "/v1/dev/propose", "/v1/dev/status"].includes(url.pathname)) {
       return development(request, env, url.pathname);
     }
