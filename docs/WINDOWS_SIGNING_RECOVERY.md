@@ -12,6 +12,26 @@ Goal: determine whether the installed unofficial Rubika-Queu v1.3 can be updated
 - A certificate fingerprint or a signed APK cannot be used to reconstruct the private signing key.
 - Do not uninstall or clear application data. The Android manifest currently sets android:allowBackup="false".
 
+## Phone-only preparation (Windows offline)
+
+Development and CI can proceed in GitHub without the Windows computer. To identify the installed app's **public signing certificate** before a safe update, an owner may export the APK of the **currently installed** `ir.sinicable.rubikaqueue` package with a trusted local Android package-export tool (only if their device allows this), then store it privately, for example in their own Google Drive. Keep the export out of public repositories, public PR attachments, and public sharing links. Do not export app data or login credentials. A downloaded GitHub APK is not evidence of the signature on the phone.
+
+An authorized cloud environment with the official Android SDK Build Tools may inspect that supplied APK read-only:
+
+~~~text
+apksigner verify --print-certs <exported-installed-base.apk>
+~~~
+
+Check the APK's package name and versionCode with Android SDK metadata tooling as a separate step. If the device uses split APKs, identify the actual installed base APK; an arbitrary downloaded split/package does not prove the installed app's identity. Only trust the fingerprint when the file's provenance from the installed application is verified. Exporting an APK cannot provide the private signing key required to build an update.
+
+Once Windows is available, the PowerShell script also accepts an already-exported file without ADB:
+
+~~~powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\inspect-windows-apk-signing.ps1 -ApkPath 'C:\Users\ABM\Downloads\installed-base.apk'
+~~~
+
+The `-ApkPath` mode does not modify or delete the supplied APK, does not use ADB, and does not establish that the file matches the installed app unless provenance was independently verified.
+
 ## 1. Reconnect Windows
 
 The Windows device must be online in Remote Desktop Commander before a remote shell can run. Start its Remote agent from Windows. For a Node-based installation check Node first:
