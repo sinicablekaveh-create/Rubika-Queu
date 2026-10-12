@@ -113,9 +113,14 @@ jobs:
               r"|tests/discovery-runtime/src/test/java/ir/sinicable/rubikaqueue/[A-Za-z0-9_]+\.java"
               r"|docs/[A-Za-z0-9_-]+\.md|README\.md)"
           )
+          # Generated code must never edit security-critical authenticated clients.
+          forbidden = {
+              "overrides/ai-assistant/AiOnlineClient.java",
+              "overrides/ai-assistant/AiDeveloperClient.java",
+          }
           names = set()
           for source, dest in files:
-              if source != dest or not allow.fullmatch(source):
+              if source != dest or not allow.fullmatch(source) or source in forbidden:
                   raise SystemExit("Disallowed file path: " + source)
               names.add(source)
           if len(names) != len(files):
@@ -138,7 +143,7 @@ jobs:
           actual.update(subprocess.check_output(
               ["git", "ls-files", "--others", "--exclude-standard"], text=True
           ).splitlines())
-          if actual != names or any(not allow.fullmatch(name) for name in actual):
+          if actual != names or any(not allow.fullmatch(name) or name in forbidden for name in actual):
               raise SystemExit("Applied paths differ from the validated patch list.")
           print("Proposed paths:", ", ".join(sorted(names)))
           PY
