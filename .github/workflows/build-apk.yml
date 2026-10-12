@@ -31,8 +31,8 @@ jobs:
       - name: Apply official Bot API v2 patch to extracted source
         run: |
           set -euo pipefail
-          git apply --check patches/official-bot-v2.patch
-          git apply patches/official-bot-v2.patch
+          git apply --ignore-whitespace --check patches/official-bot-v2.patch
+          git apply --ignore-whitespace patches/official-bot-v2.patch
 
       - name: Apply documented Bot API message options v3
         run: |

@@ -39,3 +39,15 @@ Build:
 
 OpenAI API requests have separate billing; Sites does not grant a free,
 unlimited GPT API. No user account logins are impersonated.
+
+## Optional OpenAI-compatible API gateway
+The opt-in third mode uses a user-selected HTTPS gateway and OpenAI-compatible
+chat-completions endpoint, plus a model ID and optional bearer token. It accepts
+host roots (appends /v1/chat/completions) and /v1 base paths (appends
+/chat/completions). No credentials, queue entries, contacts or Rubika sessions
+are used. Key fields do not save view state. A separate confirmation is shown
+for each request; there is no unattended AI access or Rubika sending.
+A ChatGPT subscription does not supply an OpenAI API key. External providers
+may charge fees or retain submitted drafts. Redirects are disabled; TLS is
+required; response bytes and draft lengths are bounded and checked.
+Test via existing AiPromptPolicyTests and CI lintDebug/assembleDebug.

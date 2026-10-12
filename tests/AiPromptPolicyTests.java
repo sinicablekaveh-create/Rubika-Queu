@@ -32,6 +32,20 @@ public final class AiPromptPolicyTests {
         rejects(() -> AiPromptPolicy.suggestion("   "));
         check(AiPromptPolicy.suggestion("x".repeat(4200)).length() == 4200);
         rejects(() -> AiPromptPolicy.suggestion("x".repeat(4201)));
+        check("https://api.example.com/v1/chat/completions".equals(AiPromptPolicy.chatCompletionsUrl("https://api.example.com")));
+        check("https://api.example.com/v1/chat/completions".equals(AiPromptPolicy.chatCompletionsUrl("https://api.example.com/v1/")));
+        check("https://api.groq.com/openai/v1/chat/completions".equals(AiPromptPolicy.chatCompletionsUrl("https://api.groq.com/openai/v1")));
+        rejects(() -> AiPromptPolicy.chatCompletionsUrl("http://api.example.com"));
+        rejects(() -> AiPromptPolicy.chatCompletionsUrl("https://user:pass@api.example.com/v1"));
+        rejects(() -> AiPromptPolicy.chatCompletionsUrl("https://api.example.com/a/../v1"));
+        rejects(() -> AiPromptPolicy.chatCompletionsUrl("https://api.example.com/v1?secret=abc"));
+        rejects(() -> AiPromptPolicy.chatCompletionsUrl("https://api.example.com/%2e%2e"));
+        rejects(() -> AiPromptPolicy.chatCompletionsUrl(null));
+        check("".equals(AiPromptPolicy.apiKey(null)));
+        check("sample-key".equals(AiPromptPolicy.apiKey(" sample-key ")));
+        rejects(() -> AiPromptPolicy.apiKey("abc\r\nAnother:header"));
+        rejects(() -> AiPromptPolicy.apiKey("abc def"));
+        rejects(() -> AiPromptPolicy.apiKey("x".repeat(513)));
         System.out.println("PASS AiPromptPolicyTests " + count + " assertions");
     }
 }

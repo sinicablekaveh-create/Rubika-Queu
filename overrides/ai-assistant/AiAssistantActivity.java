@@ -7,6 +7,7 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -28,9 +29,9 @@ import java.util.concurrent.Executors;
 
 /** Opt-in AI drafting: browser handoff or user-owned HTTPS Ollama endpoint. */
 public final class AiAssistantActivity extends Activity {
-    private EditText draft, server, model;
+    private EditText draft, server, model, gatewayServer, gatewayModel, gatewayKey;
     private TextView answer;
-    private Button generate;
+    private Button generate, gatewayGenerate;
     private String availableSuggestion;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private static final int MAX_RESPONSE_BYTES = 65536;
@@ -59,6 +60,7 @@ public final class AiAssistantActivity extends Activity {
         b.setOnClickListener(click);
         root.addView(b, new LinearLayout.LayoutParams(-1, -2));
         if ("پیشنهاد از مدل متن‌باز (HTTPS)".equals(text)) generate = b;
+        if ("پیشنهاد از دروازه API".equals(text)) gatewayGenerate = b;
     }
 
     @Override public void onCreate(Bundle state) {
@@ -84,6 +86,16 @@ public final class AiAssistantActivity extends Activity {
         model = field(root, "مدل نصب‌شده در Ollama", "qwen2.5:1.5b");
         model.setTextDirection(View.TEXT_DIRECTION_LTR);
         button(root, "پیشنهاد از مدل متن‌باز (HTTPS)", v -> askLocalModel());
+        label(root, "روش ۳: دروازه سازگار با OpenAI با HTTPS و حساب سرویس خودتان؛ ممکن است هزینه داشته باشد و اشتراک ChatGPT جایگزین کلید API نیست.");
+        gatewayServer = field(root, "آدرس دروازه HTTPS (مثلاً https://api.example.com/v1)", "");
+        gatewayServer.setTextDirection(View.TEXT_DIRECTION_LTR);
+        gatewayModel = field(root, "شناسه مدل دروازه", "");
+        gatewayModel.setTextDirection(View.TEXT_DIRECTION_LTR);
+        gatewayKey = field(root, "کلید API اختیاری (بدون ذخیره در برنامه)", "");
+        gatewayKey.setTextDirection(View.TEXT_DIRECTION_LTR);
+        gatewayKey.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        gatewayKey.setSaveEnabled(false);
+        button(root, "پیشنهاد از دروازه API", v -> askGateway());
         answer = new TextView(this);
         answer.setTextIsSelectable(true);
         answer.setTextSize(16);
@@ -158,6 +170,7 @@ public final class AiAssistantActivity extends Activity {
             .setNegativeButton("لغو", null)
             .setPositiveButton("ارسال متن", (dialog, which) -> {
                 generate.setEnabled(false);
+                gatewayGenerate.setEnabled(false);
                 availableSuggestion = null;
                 answer.setText("در حال دریافت پاسخ…");
                 io.execute(() -> {
@@ -177,10 +190,95 @@ public final class AiAssistantActivity extends Activity {
                             answer.setText(result);
                             availableSuggestion = accepted ? result : null;
                             generate.setEnabled(true);
+                            gatewayGenerate.setEnabled(true);
                         }
                     });
                 });
             }).show();
+    }
+
+    private void askGateway() {
+        final String content, url, modelName, key;
+        try {
+            content = AiPromptPolicy.prompt(draft.getText().toString());
+            url = AiPromptPolicy.chatCompletionsUrl(gatewayServer.getText().toString());
+            modelName = AiPromptPolicy.model(gatewayModel.getText().toString());
+            key = AiPromptPolicy.apiKey(gatewayKey.getText().toString());
+        } catch (IllegalArgumentException e) {
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("تأیید ارسال متن به دروازه AI")
+            .setMessage("فقط پیش‌نویس نوشته‌شده به " + url + " ارسال می‌شود. سرور ممکن است هزینه یا سیاست نگهداری داده داشته باشد. ادامه می‌دهید؟")
+            .setNegativeButton("لغو", null)
+            .setPositiveButton("ارسال متن", (dialog, which) -> {
+                generate.setEnabled(false);
+                gatewayGenerate.setEnabled(false);
+                availableSuggestion = null;
+                answer.setText("در حال دریافت پاسخ…");
+                io.execute(() -> {
+                    String response;
+                    boolean success;
+                    try { response = callGateway(url, modelName, key, content); success = true; }
+                    catch (Exception e) {
+                        response = "پاسخ معتبری دریافت نشد. HTTPS، مدل یا کلید API را بررسی کنید.";
+                        success = false;
+                    }
+                    final String result = response;
+                    final boolean accepted = success;
+                    runOnUiThread(() -> {
+                        if (!isFinishing() && !isDestroyed()) {
+                            answer.setText(result);
+                            availableSuggestion = accepted ? result : null;
+                            generate.setEnabled(true);
+                            gatewayGenerate.setEnabled(true);
+                        }
+                    });
+                });
+            }).show();
+    }
+
+    private static String callGateway(String url, String model, String key, String text) throws Exception {
+        HttpsURLConnection connection = (HttpsURLConnection)new URL(url).openConnection();
+        try {
+            connection.setInstanceFollowRedirects(false);
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(8000);
+            connection.setReadTimeout(45000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            connection.setRequestProperty("Accept", "application/json");
+            if (!key.isEmpty()) connection.setRequestProperty("Authorization", "Bearer " + key);
+            JSONObject request = new JSONObject();
+            request.put("model", model);
+            request.put("stream", false);
+            JSONArray messages = new JSONArray();
+            messages.put(new JSONObject().put("role", "system").put("content",
+                "Improve only the user-supplied Persian draft. Do not invent facts or send messages."));
+            messages.put(new JSONObject().put("role", "user").put("content", text));
+            request.put("messages", messages);
+            try (OutputStream out = connection.getOutputStream()) {
+                out.write(request.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            if (connection.getResponseCode() != 200) throw new java.io.IOException("AI gateway HTTP error");
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            try (InputStream input = connection.getInputStream()) {
+                byte[] chunk = new byte[2048];
+                int n;
+                while ((n = input.read(chunk)) >= 0) {
+                    if (buffer.size() + n > MAX_RESPONSE_BYTES) throw new java.io.IOException("Response too large");
+                    buffer.write(chunk, 0, n);
+                }
+            }
+            JSONObject json = new JSONObject(new String(buffer.toByteArray(), StandardCharsets.UTF_8));
+            JSONArray choices = json.optJSONArray("choices");
+            JSONObject first = choices == null ? null : choices.optJSONObject(0);
+            JSONObject message = first == null ? null : first.optJSONObject("message");
+            return AiPromptPolicy.suggestion(message == null ? "" : message.optString("content", ""));
+        } finally {
+            connection.disconnect();
+        }
     }
 
     private static String callOllama(String root, String model, String text) throws Exception {
@@ -218,7 +316,7 @@ public final class AiAssistantActivity extends Activity {
             JSONObject message = response.optJSONObject("message");
             String content = message == null ? "" : message.optString("content", "").trim();
             if (content.isEmpty()) throw new java.io.IOException("Empty response");
-            return content.length() <= 8000 ? content : content.substring(0, 8000);
+            return AiPromptPolicy.suggestion(content);
         } finally {
             connection.disconnect();
         }
