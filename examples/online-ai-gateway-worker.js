@@ -34,17 +34,25 @@ async function safeBody(request) {
   }
   return JSON.parse(await boundedText(request, 12000));
 }
-async function mcpMessage(response) {
+async function mcpMessage(response, expectedId) {
   if (!response.ok) throw new Error("Desktop MCP unavailable");
   const raw = await boundedText(response, 65536);
   const type = response.headers.get("Content-Type") || "";
   if (type.includes("text/event-stream")) {
-    const data = raw.split(/\r?\n/).filter(line => line.startsWith("data:")).map(line => line.slice(5).trim());
-    const message = data.find(line => line.startsWith("{"));
-    if (!message) throw new Error("Invalid desktop MCP reply");
-    return JSON.parse(message);
+    // Streamable MCP can emit notifications before the requested JSON-RPC reply.
+    for (const event of raw.split(/\r?\n\r?\n/)) {
+      const data = event.split(/\r?\n/).filter(line => line.startsWith("data:"))
+        .map(line => line.slice(5).trimStart()).join("\n");
+      if (!data) continue;
+      let message;
+      try { message = JSON.parse(data); } catch (_) { continue; }
+      if (message?.id === expectedId) return message;
+    }
+    throw new Error("Missing matching desktop MCP reply");
   }
-  return JSON.parse(raw);
+  const message = JSON.parse(raw);
+  if (message?.id !== expectedId) throw new Error("Mismatched desktop MCP reply");
+  return message;
 }
 async function desktopCall(env, name, args) {
   if (!env.DESKTOP_MCP_ACCESS_TOKEN) throw new Error("Desktop MCP not configured");
@@ -61,14 +69,14 @@ async function desktopCall(env, name, args) {
   const initialized = await send({ jsonrpc: "2.0", id: 1, method: "initialize", params: {
     protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "rubika-ai-gateway", version: "1.0" }
   }});
-  const hello = await mcpMessage(initialized);
+  const hello = await mcpMessage(initialized, 1);
   if (hello.error || !hello.result) throw new Error("Desktop MCP initialization failed");
   const session = initialized.headers.get("Mcp-Session-Id");
   if (session) headers["Mcp-Session-Id"] = session;
   const notice = await send({ jsonrpc: "2.0", method: "notifications/initialized" });
   if (!notice.ok) throw new Error("Desktop MCP initialization failed");
   const reply = await mcpMessage(await send({ jsonrpc: "2.0", id: 2, method: "tools/call",
-    params: { name, arguments: args } }));
+    params: { name, arguments: args } }), 2);
   if (reply.error || !reply.result) throw new Error("Desktop MCP tool failed");
   return reply.result;
 }
@@ -85,6 +93,12 @@ async function desktop(request, env, pathname) {
   if (!DESKTOP_TOOLS.has(input?.tool) || !input.arguments ||
       typeof input.arguments !== "object" || Array.isArray(input.arguments)) {
     return jsonReply({ error: "Unsupported desktop operation" }, 400);
+  }
+  // Never implicitly choose a device for file writes or command execution.
+  if (input.tool !== "list_devices" && (
+      typeof input.arguments.deviceId !== "string" ||
+      !/^[0-9a-fA-F-]{36}$/.test(input.arguments.deviceId))) {
+    return jsonReply({ error: "Explicit desktop deviceId required" }, 400);
   }
   if (!env.DESKTOP_MCP_ACCESS_TOKEN)
     return jsonReply({ error: "Desktop MCP not configured" }, 503);
