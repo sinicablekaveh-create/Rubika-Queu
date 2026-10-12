@@ -7,7 +7,8 @@ USB debugging and ADB authorization must be enabled to inspect an installed APK.
 [CmdletBinding()]
 param(
     [string]$PackageId = 'ir.sinicable.rubikaqueue',
-    [string]$DeviceSerial = ''
+    [string]$DeviceSerial = '',
+    [string]$ApkPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -68,6 +69,45 @@ if (-not $keytool) {
     }
 }
 
+$buildToolsRoot = Join-Path $sdkDir 'build-tools'
+$apksigner = $null
+if (Test-Path -LiteralPath $buildToolsRoot -PathType Container) {
+    $candidate = Get-ChildItem -LiteralPath $buildToolsRoot -Directory -ErrorAction SilentlyContinue |
+        Sort-Object -Property Name -Descending |
+        ForEach-Object { Join-Path $_.FullName 'apksigner.bat' } |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+        Select-Object -First 1
+    if ($candidate) { $apksigner = $candidate }
+}
+if (-not $apksigner) {
+    Write-Host 'apksigner.bat not found in Android SDK build-tools.'
+    return
+}
+
+# A verified APK export may be checked without an ADB connection.
+# This verifies only the supplied file; it does not prove the file came from the installed app.
+if (-not [string]::IsNullOrWhiteSpace($ApkPath)) {
+    if (-not (Test-Path -LiteralPath $ApkPath -PathType Leaf)) {
+        throw 'The specified APK file does not exist.'
+    }
+    $apkFile = Get-Item -LiteralPath $ApkPath
+    if ($apkFile.Extension -ine '.apk') {
+        throw 'The provided file must have an .apk extension.'
+    }
+    Write-Host '--- SUPPLIED APK signer certificate (SHA-256) ---'
+    $verification = @(& $apksigner verify --print-certs $apkFile.FullName 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'The supplied APK failed signature verification; do not use it as update evidence.'
+    }
+    $signerDigests = @($verification | Where-Object { $_ -match 'Signer #\d+ certificate SHA-256 digest:' })
+    if ($signerDigests.Count -eq 0) {
+        throw 'No certificate SHA-256 digest was returned by apksigner.'
+    }
+    $signerDigests | ForEach-Object { Write-Host $_ }
+    Write-Host 'File inspection only: this does NOT establish installed-package identity or prove access to the matching private key.'
+    Write-Host 'The supplied APK is not modified or deleted.'
+    return
+}
 $adb = Find-Executable 'adb.exe' (Join-Path $sdkDir 'platform-tools\adb.exe')
 if (-not $adb) {
     Write-Host ''
@@ -105,21 +145,6 @@ if ($baseApk.Count -eq 0) {
     return
 }
 $remotePath = ($baseApk[0] -replace '^package:', '').Trim()
-
-$buildToolsRoot = Join-Path $sdkDir 'build-tools'
-$apksigner = $null
-if (Test-Path -LiteralPath $buildToolsRoot -PathType Container) {
-    $candidate = Get-ChildItem -LiteralPath $buildToolsRoot -Directory -ErrorAction SilentlyContinue |
-        Sort-Object -Property Name -Descending |
-        ForEach-Object { Join-Path $_.FullName 'apksigner.bat' } |
-        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
-        Select-Object -First 1
-    if ($candidate) { $apksigner = $candidate }
-}
-if (-not $apksigner) {
-    Write-Host 'apksigner.bat not found in Android SDK build-tools.'
-    return
-}
 
 # Pull ONLY the installed APK to a unique local TEMP path; remove it immediately.
 # Does not access, erase, or export Android application data.
