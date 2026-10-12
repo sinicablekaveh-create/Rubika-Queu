@@ -56,9 +56,11 @@ globalThis.fetch = async (url, options) => {
       jsonrpc:'2.0', id:1, result:{protocolVersion:'2025-06-18',capabilities:{}}
     }, {headers:{'Mcp-Session-Id':'test-session'}});
     if (message.method === 'notifications/initialized') return new Response(null,{status:202});
-    if (message.method === 'tools/call') return Response.json({
-      jsonrpc:'2.0', id:2, result:{content:[{type:'text',text:'device result'}]}
-    });
+    if (message.method === 'tools/call') return new Response(
+      'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{}}\n\n' +
+      'data: {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"device result"}]}}\n\n',
+      { headers: { 'Content-Type': 'text/event-stream' } }
+    );
   }
   throw new Error('Unexpected upstream request: ' + url);
 };
@@ -94,6 +96,9 @@ try {
   const unauthDesktop = await worker.fetch(request('/v1/desktop/call',
     {tool:'list_devices',arguments:{}}, token), desktopEnv);
   assert.equal(unauthDesktop.status,401);
+  const missingTarget = await worker.fetch(request('/v1/desktop/call',
+    {tool:'read_file',arguments:{path:'test.txt'}},desktopEnv.DESKTOP_GATEWAY_TOKEN),desktopEnv);
+  assert.equal(missingTarget.status,400);
   const blockedDesktop = await worker.fetch(request('/v1/desktop/call',
     {tool:'kill_process',arguments:{pid:1}},desktopEnv.DESKTOP_GATEWAY_TOKEN),desktopEnv);
   assert.equal(blockedDesktop.status,400);
