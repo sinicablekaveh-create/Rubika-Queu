@@ -3,6 +3,7 @@ package ir.sinicable.rubikaqueue;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class PluginSystemTests {
@@ -68,6 +69,72 @@ public final class PluginSystemTests {
         check(cancelled.cancelled && !cancelled.success && cancelled.totalAttempts == 0);
         WorkflowEngine.Result empty = engine.run(Collections.<WorkflowEngine.Step>emptyList(), 42, 1, null);
         check(empty.success && (Integer) empty.output == 42);
+        // A malformed later step must not run any earlier side-effecting step.
+        final int[] sideEffects = {0};
+        WorkflowEngine.Step effect = new WorkflowEngine.Step() {
+            public String id() { return "effect"; }
+            public Object execute(Object value) { sideEffects[0]++; return value; }
+        };
+        try {
+            engine.run(Arrays.asList(effect, null), 0, 1, null);
+            throw new AssertionError("Malformed step accepted");
+        } catch (IllegalArgumentException expected) { check(sideEffects[0] == 0); }
+
+        // Cancellation during the last failed attempt must win over ordinary failure.
+        final boolean[] cancelledDuringStep = {false};
+        WorkflowEngine.Step cancelledFailure = new WorkflowEngine.Step() {
+            public String id() { return "cancel-failure"; }
+            public Object execute(Object value) throws Exception {
+                cancelledDuringStep[0] = true;
+                throw new Exception("cancelled while running");
+            }
+        };
+        WorkflowEngine.Result cancelledLast = engine.run(
+                Arrays.asList(cancelledFailure), 0, 1,
+                new WorkflowEngine.Cancellation() {
+                    public boolean cancelled() { return cancelledDuringStep[0]; }
+                });
+        check(cancelledLast.cancelled && !cancelledLast.success && cancelledLast.totalAttempts == 1);
+
+        // A duplicate in a batch must not expose earlier capabilities.
+        Map<String, CapabilityRegistry.Provider> badBatch = new LinkedHashMap<>();
+        badBatch.put("transient", provider("new", 1, true, false));
+        badBatch.put("ai", provider("backup", 1, true, false));
+        try {
+            registry.registerAll(badBatch);
+            throw new AssertionError("Invalid registration batch accepted");
+        } catch (IllegalArgumentException expected) {
+            check(registry.providerCount("transient") == 0);
+        }
+
+        // A failed stop keeps shutdown retryable and forbids restart.
+        final int[] stops = {0};
+        PluginManager.Plugin flaky = new PluginManager.Plugin() {
+            public String id() { return "flaky"; }
+            public Map<String, CapabilityRegistry.Provider> capabilities() {
+                Map<String, CapabilityRegistry.Provider> offered = new HashMap<>();
+                offered.put("flaky-capability", provider("flaky-provider", 1, true, false));
+                return offered;
+            }
+            public void start() { }
+            public void stop() throws Exception {
+                if (++stops[0] == 1) throw new Exception("temporary stop error");
+            }
+        };
+        manager.register(flaky);
+        manager.enable("flaky");
+        try {
+            manager.disable("flaky");
+            throw new AssertionError("Failed stop ignored");
+        } catch (Exception expected) {
+            check(stops[0] == 1 && registry.providerCount("flaky-capability") == 0);
+        }
+        try {
+            manager.enable("flaky");
+            throw new AssertionError("Restarted before shutdown completed");
+        } catch (IllegalStateException expected) { check(true); }
+        manager.disable("flaky");
+        check(stops[0] == 2 && !manager.isEnabled("flaky"));
         System.out.println("PluginSystemTests: " + count + " checks passed");
     }
 }
