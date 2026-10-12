@@ -18,27 +18,51 @@ public final class CapabilityRegistry {
 
     private final Map<String, List<Provider>> capabilities = new HashMap<>();
 
+    /** Publish all plugin capabilities together, or none if validation fails. */
+    public synchronized void registerAll(Map<String, Provider> providers) {
+        if (providers == null) throw new IllegalArgumentException("Providers are required");
+        Map<String, List<Provider>> staged = new HashMap<>();
+        for (Map.Entry<String, List<Provider>> item : capabilities.entrySet()) {
+            staged.put(item.getKey(), new ArrayList<>(item.getValue()));
+        }
+        for (Map.Entry<String, Provider> item : providers.entrySet()) {
+            String capability = item.getKey();
+            Provider provider = item.getValue();
+            if (capability == null || capability.trim().isEmpty() || provider == null ||
+                    provider.id() == null || provider.id().trim().isEmpty()) {
+                throw new IllegalArgumentException("Capability and provider ID are required");
+            }
+            List<Provider> entries = staged.get(capability);
+            if (entries == null) {
+                entries = new ArrayList<>();
+                staged.put(capability, entries);
+            }
+            for (Provider existing : entries) {
+                if (existing.id().equals(provider.id())) {
+                    throw new IllegalArgumentException("Duplicate provider ID for capability");
+                }
+            }
+            entries.add(provider);
+            Collections.sort(entries, new Comparator<Provider>() {
+                @Override public int compare(Provider left, Provider right) {
+                    return Integer.compare(right.priority(), left.priority());
+                }
+            });
+        }
+        capabilities.clear();
+        capabilities.putAll(staged);
+    }
+
     public synchronized void register(String capability, Provider provider) {
-        if (capability == null || capability.trim().isEmpty() || provider == null ||
-                provider.id() == null || provider.id().trim().isEmpty()) {
-            throw new IllegalArgumentException("Capability and provider ID are required");
+        registerAll(Collections.singletonMap(capability, provider));
+    }
+
+    /** Remove a plugin's providers as a single visible change. */
+    public synchronized void unregisterAll(Map<String, Provider> providers) {
+        if (providers == null) return;
+        for (Map.Entry<String, Provider> item : providers.entrySet()) {
+            if (item.getValue() != null) unregister(item.getKey(), item.getValue().id());
         }
-        List<Provider> entries = capabilities.get(capability);
-        if (entries == null) {
-            entries = new ArrayList<>();
-            capabilities.put(capability, entries);
-        }
-        for (Provider existing : entries) {
-            if (existing.id().equals(provider.id())) {
-                throw new IllegalArgumentException("Duplicate provider ID for capability");
-            }
-        }
-        entries.add(provider);
-        Collections.sort(entries, new Comparator<Provider>() {
-            @Override public int compare(Provider left, Provider right) {
-                return Integer.compare(right.priority(), left.priority());
-            }
-        });
     }
 
     public synchronized void unregister(String capability, String providerId) {
