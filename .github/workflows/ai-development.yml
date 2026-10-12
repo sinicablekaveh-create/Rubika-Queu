@@ -36,7 +36,7 @@ jobs:
       # is transferred as data, not executed on the credential-bearing runner.
       - name: Generate a narrow patch with Codex
         id: codex
-        uses: openai/codex-action@v1
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ':read-only'
@@ -151,7 +151,7 @@ jobs:
       # GitHub token is scoped to this separate job, after patch validation.
       # PR stays in draft until a maintainer reviews the code and CI.
       - name: Open draft pull request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676
         with:
           token: ${{ github.token }}
           base: main
