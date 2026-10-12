@@ -47,6 +47,9 @@ jobs:
       - name: Install additive AI discovery engine
         run: python3 scripts/add-ai-discovery.py
 
+      - name: Install dependency-free plugin core
+        run: python3 scripts/add-plugin-system.py
+
       - name: Test smart discovery ranking
         run: |
           mkdir -p "$RUNNER_TEMP/discovery-tests"
@@ -75,6 +78,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Test optional-provider fallback, plugin lifecycle and workflows
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/plugin-tests"
+          javac -d "$RUNNER_TEMP/plugin-tests" overrides/plugin-system/*.java tests/PluginSystemTests.java
+          java -cp "$RUNNER_TEMP/plugin-tests" ir.sinicable.rubikaqueue.PluginSystemTests
 
       - name: Test rate-limit retry backoff
         run: |
