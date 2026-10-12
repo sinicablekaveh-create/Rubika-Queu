@@ -24,6 +24,17 @@ Keep Android APK CI and separate core Java/Node tests. Remove unrelated template
 
 The root repository stores audited Android source in a ZIP and uses overlays at CI runtime. Removing this ZIP without migrating the Java sources would break the build; it is a **remaining structural dependency**.
 
+## Windows verification without hosted CI
+
+Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\verify-plugin-core.ps1`
+from the repository root after reviewing the script. This requires only a JDK
+(`java` and `javac` available in PATH), and verifies the pure-Java plugin
+core without Android SDK, Clojure, Conda, online AI, or GitHub Actions.
+
+This is **not** a replacement for the complete Android lint, Gradle APK
+build, signature verification, and APK artifact checks; those still must pass
+before merge or release.
+
 ## Runtime failure policy
 
 - If a provider is unavailable or raises an exception, CapabilityRegistry attempts the next provider by priority.
