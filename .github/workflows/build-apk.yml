@@ -132,6 +132,7 @@ jobs:
         run: gradle --no-daemon --max-workers=4 -p tests/discovery-runtime test
 
       - name: Restore permanent test signing key if configured
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           TEST_P12_BASE64: ${{ secrets.RUBIKA_TEST_KEYSTORE_BASE64 }}
         run: |
@@ -144,8 +145,8 @@ jobs:
 
       - name: Build signed APK
         env:
-          RUBIKA_TEST_KEYSTORE_PASSWORD: ${{ secrets.RUBIKA_TEST_KEYSTORE_PASSWORD }}
-          RUBIKA_TEST_KEY_PASSWORD: ${{ secrets.RUBIKA_TEST_KEY_PASSWORD }}
+          RUBIKA_TEST_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && secrets.RUBIKA_TEST_KEYSTORE_PASSWORD || '' }}
+          RUBIKA_TEST_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && secrets.RUBIKA_TEST_KEY_PASSWORD || '' }}
         run: |
           gradle wrapper --gradle-version 8.9
           if ! ./gradlew --no-daemon --max-workers=4 lintDebug assembleDebug; then
