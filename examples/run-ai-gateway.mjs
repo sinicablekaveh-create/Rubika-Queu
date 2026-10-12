@@ -67,8 +67,22 @@ createServer(async (incoming, outgoing) => {
       ...(['GET', 'HEAD'].includes(incoming.method) ? {} : { body: Buffer.concat(chunks) })
     });
     const env = { ...process.env };
-    if (url.pathname.startsWith('/v1/desktop/'))
-      env.DESKTOP_MCP_ACCESS_TOKEN = await desktopToken();
+    if (url.pathname.startsWith('/v1/desktop/')) {
+      // Authenticate before reading or refreshing independent Desktop OAuth credentials.
+      // The Worker validates the token too; this boundary protects local token storage.
+      const secret = env.DESKTOP_GATEWAY_TOKEN;
+      if (!secret || secret.length < 24 ||
+          incoming.headers.authorization !== 'Bearer ' + secret) {
+        outgoing.writeHead(401, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-store'
+        }).end(JSON.stringify({ error: 'Unauthorized or unconfigured' }));
+        return;
+      }
+      // Invalid routes and methods must not trigger a credential refresh.
+      if (url.pathname === '/v1/desktop/call' && incoming.method === 'POST')
+        env.DESKTOP_MCP_ACCESS_TOKEN = await desktopToken();
+    }
     const response = await worker.fetch(request, env);
     outgoing.writeHead(response.status, Object.fromEntries(response.headers));
     if (response.body) Readable.fromWeb(response.body).pipe(outgoing);
