@@ -130,6 +130,7 @@ public final class AiAssistantActivity extends Activity {
         desktopCommand = field(root, "فرمان برای اجرای دستی روی دستگاه", "");
         button(root, "فهرست دستگاه‌ها", v -> desktopAction("list_devices"));
         button(root, "خواندن فایل", v -> desktopAction("read_file"));
+        button(root, "فهرست پوشه", v -> desktopAction("list_directory"));
         button(root, "نوشتن فایل", v -> desktopAction("write_file"));
         button(root, "اجرای فرمان", v -> desktopAction("start_process"));
         label(root, "روش رایگان ۲: دریافت پاسخ داخل برنامه از مدل متن‌باز روی سرور شخصی خودتان. سرور باید HTTPS و دارای گواهی معتبر باشد؛ هیچ API Key تجاری لازم نیست.");
@@ -339,16 +340,18 @@ public final class AiAssistantActivity extends Activity {
     }
 
     private void desktopAction(String tool) {
-        final String gateway, token;
+        final String gateway, token, selectedDevice;
         final JSONObject arguments = new JSONObject();
         try {
             gateway = onlineGateway.getText().toString().trim();
             AiDeveloperClient.path(gateway, "/v1/desktop/call");
             token = AiOnlineClient.gatewayToken(desktopToken.getText().toString());
-            String device = desktopDevice.getText().toString().trim();
-            if (device.length() > 100) throw new IllegalArgumentException("شناسه دستگاه بیش از حد بلند است");
-            if (!device.isEmpty()) arguments.put("deviceId", device);
-            if ("read_file".equals(tool) || "write_file".equals(tool)) {
+            selectedDevice = desktopDevice.getText().toString().trim();
+            if (selectedDevice.length() > 100) throw new IllegalArgumentException("شناسه دستگاه بیش از حد بلند است");
+            if (!"list_devices".equals(tool) && selectedDevice.isEmpty())
+                throw new IllegalArgumentException("برای این عملیات ابتدا شناسه دستگاه را وارد کنید");
+            if (!selectedDevice.isEmpty()) arguments.put("deviceId", selectedDevice);
+            if ("read_file".equals(tool) || "write_file".equals(tool) || "list_directory".equals(tool)) {
                 String path = desktopPath.getText().toString().trim();
                 if (path.isEmpty() || path.length() > 1024)
                     throw new IllegalArgumentException("مسیر فایل باید ۱ تا ۱۰۲۴ نویسه باشد");
@@ -366,6 +369,9 @@ public final class AiAssistantActivity extends Activity {
                     throw new IllegalArgumentException("فرمان باید ۱ تا ۲۰۰۰ نویسه باشد");
                 arguments.put("command", command);
             }
+            JSONObject payload = new JSONObject().put("tool", tool).put("arguments", arguments);
+            if (payload.toString().getBytes(StandardCharsets.UTF_8).length > 12000)
+                throw new IllegalArgumentException("اندازه درخواست دسکتاپ بیشتر از حد مجاز ۱۲ کیلوبایت است");
         } catch (Exception error) {
             Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
             return;
@@ -375,10 +381,13 @@ public final class AiAssistantActivity extends Activity {
                 : desktopPath.getText().toString().trim());
         new AlertDialog.Builder(this)
                 .setTitle("تأیید عملیات Remote Desktop")
-                .setMessage("عملیات: " + tool + "\nهدف: " + detail +
-                        "\nاین درخواست روی رایانهٔ متصل اجرا می‌شود. ادامه می‌دهید؟")
+                .setMessage("عملیات: " + tool + "\nدستگاه: " +
+                        ("list_devices".equals(tool) ? "فهرست دستگاه‌ها" : selectedDevice) +
+                        "\nهدف: " + detail +
+                        "\nاین درخواست روی دستگاه انتخاب‌شده اجرا می‌شود. ادامه می‌دهید؟")
                 .setNegativeButton("لغو", null)
                 .setPositiveButton("اجرا", (dialog, which) -> {
+                    availableSuggestion = null;
                     answer.setText("در حال اجرای عملیات دسکتاپ…");
                     io.execute(() -> {
                         String output;
