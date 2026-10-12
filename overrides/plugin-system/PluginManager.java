@@ -1,8 +1,6 @@
 package ir.sinicable.rubikaqueue;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /** Manages opt-in plugins; stopping one never disables the core application. */
@@ -17,6 +15,7 @@ public final class PluginManager {
     private static final class Entry {
         final Plugin plugin;
         boolean enabled;
+        boolean shutdownPending;
         final Map<String, CapabilityRegistry.Provider> registered = new LinkedHashMap<>();
         Entry(Plugin plugin) { this.plugin = plugin; }
     }
@@ -44,36 +43,46 @@ public final class PluginManager {
 
     public synchronized void enable(String id) throws Exception {
         Entry entry = required(id);
+        if (entry.shutdownPending) {
+            throw new IllegalStateException("Plugin shutdown incomplete; retry disable first");
+        }
         if (entry.enabled) return;
-        List<String> registered = new ArrayList<>();
         Map<String, CapabilityRegistry.Provider> providers = null;
+        boolean published = false;
         try {
             entry.plugin.start();
-            providers = entry.plugin.capabilities();
-            if (providers == null) throw new IllegalArgumentException("Plugin capabilities missing");
-            for (Map.Entry<String, CapabilityRegistry.Provider> item : providers.entrySet()) {
-                registry.register(item.getKey(), item.getValue());
-                registered.add(item.getKey());
-                entry.registered.put(item.getKey(), item.getValue());
-            }
+            Map<String, CapabilityRegistry.Provider> offered = entry.plugin.capabilities();
+            if (offered == null) throw new IllegalArgumentException("Plugin capabilities missing");
+            providers = new LinkedHashMap<>(offered);
+            registry.registerAll(providers);
+            published = true;
+            entry.registered.putAll(providers);
             entry.enabled = true;
         } catch (Exception failure) {
-            for (String capability : registered) registry.unregister(capability, providers.get(capability).id());
+            if (published) registry.unregisterAll(providers);
             entry.registered.clear();
-            try { entry.plugin.stop(); } catch (Exception stopFailure) { failure.addSuppressed(stopFailure); }
+            try {
+                entry.plugin.stop();
+            } catch (Exception stopFailure) {
+                entry.shutdownPending = true;
+                failure.addSuppressed(stopFailure);
+            }
             throw failure;
         }
     }
 
     public synchronized void disable(String id) throws Exception {
         Entry entry = required(id);
-        if (!entry.enabled) return;
-        entry.enabled = false;
-        for (Map.Entry<String, CapabilityRegistry.Provider> item : entry.registered.entrySet()) {
-            registry.unregister(item.getKey(), item.getValue().id());
+        if (!entry.enabled && !entry.shutdownPending) return;
+        if (!entry.shutdownPending) {
+            // Hide all providers before stopping; retry stop if cleanup fails.
+            registry.unregisterAll(entry.registered);
+            entry.registered.clear();
+            entry.shutdownPending = true;
         }
-        entry.registered.clear();
         entry.plugin.stop();
+        entry.shutdownPending = false;
+        entry.enabled = false;
     }
 
     private Entry required(String id) {
