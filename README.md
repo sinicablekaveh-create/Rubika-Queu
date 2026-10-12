@@ -61,3 +61,5 @@ Provider API keys belong **only on the server**; a short-lived gateway token is
 entered in the UI and is not saved by the app. The draft is sent only after
 confirmation, and AI never sends Rubika messages or updates code automatically.
 See [Online AI gateway](docs/ONLINE_AI_GATEWAY.md) for deployment and testing.
+For an owner-operated Windows HTTPS server, see
+[Personal gateway deployment](docs/PERSONAL_GATEWAY_DEPLOYMENT.md).

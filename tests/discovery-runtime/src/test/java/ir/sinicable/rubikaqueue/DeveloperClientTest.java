@@ -52,4 +52,14 @@ public final class DeveloperClientTest {
             fail("Unknown run status");
         } catch(java.io.IOException expected) {}
     }
+    @Test public void desktopResultsRequireTextAndAllowedTool() throws Exception {
+        assertEquals("device result", AiDeveloperClient.desktopAnswer(
+                "{\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"device result\"}]}}"));
+        try {
+            AiDeveloperClient.desktopAnswer("{\"result\":{\"isError\":true,\"content\":[{\"type\":\"text\",\"text\":\"failed\"}]}}");
+            fail("Tool error must fail");
+        } catch (java.io.IOException expected) {}
+        invalid(() -> AiDeveloperClient.desktop("https://ai.example.com", "token",
+                "kill_process", new JSONObject()));
+    }
 }
