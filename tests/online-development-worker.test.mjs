@@ -13,6 +13,11 @@ const env = {
   GITHUB_REPOSITORY: 'sinicablekaveh-create/Rubika-Queu',
   GITHUB_WORKFLOW_TOKEN: 'github-actions-token-test'
 };
+const desktopEnv = {
+  ...env,
+  DESKTOP_GATEWAY_TOKEN: 'desktop-gateway-token-0123456789',
+  DESKTOP_MCP_ACCESS_TOKEN: 'desktop-oauth-test'
+};
 function request(path, data, bearer = token, method = 'POST') {
   const headers = { Authorization: 'Bearer ' + bearer };
   if (method === 'POST') headers['Content-Type'] = 'application/json';
@@ -45,6 +50,18 @@ globalThis.fetch = async (url, options) => {
     workflow_runs:[{ id:123, status:'completed', conclusion:'success',
       html_url:'https://github.com/sinicablekaveh-create/Rubika-Queu/actions/runs/123'}]
   });
+  if (String(url) === 'https://mcp.desktopcommander.app/mcp') {
+    const message = JSON.parse(options.body);
+    if (message.method === 'initialize') return Response.json({
+      jsonrpc:'2.0', id:1, result:{protocolVersion:'2025-06-18',capabilities:{}}
+    }, {headers:{'Mcp-Session-Id':'test-session'}});
+    if (message.method === 'notifications/initialized') return new Response(null,{status:202});
+    if (message.method === 'tools/call') return new Response(
+      'data: {"jsonrpc":"2.0","method":"notifications/progress","params":{}}\n\n' +
+      'data: {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"device result"}]}}\n\n',
+      { headers: { 'Content-Type': 'text/event-stream' } }
+    );
+  }
   throw new Error('Unexpected upstream request: ' + url);
 };
 try {
@@ -75,6 +92,25 @@ try {
   const disabled = await worker.fetch(request('/v1/dev/propose',
     {task:'بهبود جستجوی گروه‌های برق و افزودن تست'}),{...env,GITHUB_WORKFLOW_TOKEN:''});
   assert.equal(disabled.status,503);
+
+  const unauthDesktop = await worker.fetch(request('/v1/desktop/call',
+    {tool:'list_devices',arguments:{}}, token), desktopEnv);
+  assert.equal(unauthDesktop.status,401);
+  const missingTarget = await worker.fetch(request('/v1/desktop/call',
+    {tool:'read_file',arguments:{path:'test.txt'}},desktopEnv.DESKTOP_GATEWAY_TOKEN),desktopEnv);
+  assert.equal(missingTarget.status,400);
+  const blockedDesktop = await worker.fetch(request('/v1/desktop/call',
+    {tool:'kill_process',arguments:{pid:1}},desktopEnv.DESKTOP_GATEWAY_TOKEN),desktopEnv);
+  assert.equal(blockedDesktop.status,400);
+  const desktop = await worker.fetch(request('/v1/desktop/call',
+    {tool:'list_devices',arguments:{}},desktopEnv.DESKTOP_GATEWAY_TOKEN),desktopEnv);
+  assert.equal(desktop.status,200);
+  assert.equal((await desktop.json()).result.content[0].text,'device result');
+  const mcp = requests.filter(r => r.url === 'https://mcp.desktopcommander.app/mcp');
+  assert.deepEqual(mcp.map(r => JSON.parse(r.options.body).method),
+    ['initialize','notifications/initialized','tools/call']);
+  assert.equal(mcp[2].options.headers['Mcp-Session-Id'],'test-session');
+  assert.equal(mcp[2].options.headers.Authorization,'Bearer desktop-oauth-test');
 
   const dangerous = await worker.fetch(request('/v1/dev/propose',
     {task:'بهبود جستجوی گروه‌های برق و افزودن تست'}),{...env,GITHUB_REPOSITORY:'someone/other'});

@@ -78,7 +78,8 @@ search; check model availability and API quota before use.
 Also configure the repository's GitHub Actions secret `OPENAI_API_KEY` for
 the read-only Codex proposal workflow, and enable the repository option for
 Actions to create pull requests. These two setup steps cannot be completed by
-committing source code. See `docs/AUTOMATED_DEVELOPMENT.md` on PR #20.
+committing source code. See `docs/AUTOMATED_DEVELOPMENT.md`. The workflow must
+be reviewed and merged into `main` before the dispatch button can work.
 
 In Android, supply the gateway host and its relevant token. Each remote
 research and GitHub proposal operation requires an explicit confirmation.
@@ -133,9 +134,8 @@ Additional server environment configuration:
   fine-grained GitHub token scoped only to **Actions: write** on that repository.
   It must stay on the gateway; it is never entered in the Android application.
 
-Before using the **development request** button, review and merge PR #20
-(`feat/supervised-ai-development-actions`) so
-`.github/workflows/ai-development.yml` exists on `main`; enable Actions to
+Before using the **development request** button, review and merge the PR
+that adds `.github/workflows/ai-development.yml` to `main`; enable Actions to
 create PRs and provision the GitHub Actions secret `OPENAI_API_KEY`.
 That Actions workflow generates a *draft* PR only. It cannot merge it, bypass
 review, install the APK, or grant access to the phone. It might incur API/CI
@@ -162,3 +162,34 @@ The gateway example is not deployed by this repository. The backend is a
 starting point, not a production identity system: add real per-user authentication,
 abuse prevention, budgets, audit logs that avoid sensitive content, and
 approval enforcement before exposing it beyond trusted testers.
+
+## Remote Desktop Commander bridge
+
+The optional desktop controls use `POST /v1/desktop/call` on the same owner-operated
+HTTPS gateway, authenticated with a **separate** `DESKTOP_GATEWAY_TOKEN` (at least
+24 random characters). The gateway forwards only `list_devices`, `list_directory`,
+`read_file`, `write_file`, and `start_process` to the official Remote Desktop
+Commander MCP endpoint `https://mcp.desktopcommander.app/mcp`. Each operation
+requires a separate confirmation in Android. File writes replace the named
+file; command execution uses the selected device's shell. Device IDs can be
+obtained with the list button.
+
+For standalone Worker deployment, set `DESKTOP_MCP_ACCESS_TOKEN` as a deployment
+secret after separately authorizing your gateway as an OAuth client for Remote
+Desktop Commander. This is an OAuth
+access token for that MCP service, **not** the token of the ChatGPT connector in
+this conversation. For a personal Windows server, the separate OAuth helper and
+Node adapter in `docs/PERSONAL_GATEWAY_DEPLOYMENT.md` authorize and refresh the
+token outside the Worker. The standalone Worker does not implement OAuth login
+or token refresh. Do not copy
+ChatGPT session credentials or try to extract a connector token. The bridge is
+disabled when either desktop secret is absent. The desktop OAuth token and
+gateway token stay on the server; Android receives only the separate gateway
+token. The Worker must be deployed and the device agent must remain online.
+
+This bridge grants powerful access to the selected computer. Give it only to
+trusted users, add real per-user authentication and server-side approvals before
+shared use, and keep the gateway private. The example limits request/response
+size and available tool names, but a valid desktop gateway token can still
+read or write files and run commands directly. The Android confirmation is a
+user interface check, not a server-side authorization boundary.

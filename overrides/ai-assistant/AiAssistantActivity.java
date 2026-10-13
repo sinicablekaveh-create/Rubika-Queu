@@ -30,6 +30,7 @@ import java.util.concurrent.Executors;
 public final class AiAssistantActivity extends Activity {
     private EditText draft, server, model, onlineGateway, onlineModel, gatewayToken;
     private EditText developmentPrompt, developmentToken;
+    private EditText desktopToken, desktopDevice, desktopPath, desktopContent, desktopCommand;
     private Button researchButton, proposalButton, developmentStatusButton;
     private Button onlineGenerate;
     private TextView answer;
@@ -116,6 +117,22 @@ public final class AiAssistantActivity extends Activity {
         developmentStatusButton.setText("بررسی آخرین وضعیت توسعه در GitHub");
         developmentStatusButton.setOnClickListener(v -> development("status"));
         root.addView(developmentStatusButton);
+        label(root, "Remote Desktop Commander: هر خواندن، نوشتن فایل یا اجرای فرمان فقط با تأیید جداگانه انجام می‌شود. توکن مستقل دستگاه را وارد کنید؛ خروجی ممکن است حاوی اطلاعات خصوصی باشد.");
+        desktopToken = field(root, "توکن مستقل دروازهٔ دسکتاپ (DESKTOP_GATEWAY_TOKEN)", "");
+        desktopToken.setTextDirection(View.TEXT_DIRECTION_LTR);
+        desktopToken.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        desktopDevice = field(root, "شناسه دستگاه (پس از فهرست دستگاه‌ها)", "");
+        desktopDevice.setTextDirection(View.TEXT_DIRECTION_LTR);
+        desktopPath = field(root, "مسیر فایل یا پوشه روی دستگاه", "");
+        desktopContent = field(root, "متن جدید فایل (نوشتن، محتوای قبلی را جایگزین می‌کند)", "");
+        desktopContent.setMinLines(3);
+        desktopContent.setGravity(Gravity.TOP);
+        desktopCommand = field(root, "فرمان برای اجرای دستی روی دستگاه", "");
+        button(root, "فهرست دستگاه‌ها", v -> desktopAction("list_devices"));
+        button(root, "خواندن فایل", v -> desktopAction("read_file"));
+        button(root, "فهرست پوشه", v -> desktopAction("list_directory"));
+        button(root, "نوشتن فایل", v -> desktopAction("write_file"));
+        button(root, "اجرای فرمان", v -> desktopAction("start_process"));
         label(root, "روش رایگان ۲: دریافت پاسخ داخل برنامه از مدل متن‌باز روی سرور شخصی خودتان. سرور باید HTTPS و دارای گواهی معتبر باشد؛ هیچ API Key تجاری لازم نیست.");
         server = field(root, "نشانی HTTPS سرور شخصی (مثلاً https://ai.example.com)", "");
         server.setTextDirection(View.TEXT_DIRECTION_LTR);
@@ -320,6 +337,68 @@ public final class AiAssistantActivity extends Activity {
         new AlertDialog.Builder(this).setTitle(title).setMessage(message)
                 .setNegativeButton("لغو", null)
                 .setPositiveButton("تأیید", (dialog, which) -> run.run()).show();
+    }
+
+    private void desktopAction(String tool) {
+        final String gateway, token, selectedDevice;
+        final JSONObject arguments = new JSONObject();
+        try {
+            gateway = onlineGateway.getText().toString().trim();
+            AiDeveloperClient.path(gateway, "/v1/desktop/call");
+            token = AiOnlineClient.gatewayToken(desktopToken.getText().toString());
+            selectedDevice = desktopDevice.getText().toString().trim();
+            if (selectedDevice.length() > 100) throw new IllegalArgumentException("شناسه دستگاه بیش از حد بلند است");
+            if (!"list_devices".equals(tool) && selectedDevice.isEmpty())
+                throw new IllegalArgumentException("برای این عملیات ابتدا شناسه دستگاه را وارد کنید");
+            if (!selectedDevice.isEmpty()) arguments.put("deviceId", selectedDevice);
+            if ("read_file".equals(tool) || "write_file".equals(tool) || "list_directory".equals(tool)) {
+                String path = desktopPath.getText().toString().trim();
+                if (path.isEmpty() || path.length() > 1024)
+                    throw new IllegalArgumentException("مسیر فایل باید ۱ تا ۱۰۲۴ نویسه باشد");
+                arguments.put("path", path);
+            }
+            if ("write_file".equals(tool)) {
+                String content = desktopContent.getText().toString();
+                if (content.length() > 8000)
+                    throw new IllegalArgumentException("محتوای فایل بیش از حد بلند است");
+                arguments.put("content", content).put("mode", "rewrite");
+            }
+            if ("start_process".equals(tool)) {
+                String command = desktopCommand.getText().toString().trim();
+                if (command.isEmpty() || command.length() > 2000)
+                    throw new IllegalArgumentException("فرمان باید ۱ تا ۲۰۰۰ نویسه باشد");
+                arguments.put("command", command);
+            }
+            JSONObject payload = new JSONObject().put("tool", tool).put("arguments", arguments);
+            if (payload.toString().getBytes(StandardCharsets.UTF_8).length > 12000)
+                throw new IllegalArgumentException("اندازه درخواست دسکتاپ بیشتر از حد مجاز ۱۲ کیلوبایت است");
+        } catch (Exception error) {
+            Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        String detail = "start_process".equals(tool) ? desktopCommand.getText().toString().trim()
+                : ("list_devices".equals(tool) ? "فهرست دستگاه‌های متصل"
+                : desktopPath.getText().toString().trim());
+        new AlertDialog.Builder(this)
+                .setTitle("تأیید عملیات Remote Desktop")
+                .setMessage("عملیات: " + tool + "\nدستگاه: " +
+                        ("list_devices".equals(tool) ? "فهرست دستگاه‌ها" : selectedDevice) +
+                        "\nهدف: " + detail +
+                        "\nاین درخواست روی دستگاه انتخاب‌شده اجرا می‌شود. ادامه می‌دهید؟")
+                .setNegativeButton("لغو", null)
+                .setPositiveButton("اجرا", (dialog, which) -> {
+                    availableSuggestion = null;
+                    answer.setText("در حال اجرای عملیات دسکتاپ…");
+                    io.execute(() -> {
+                        String output;
+                        try { output = AiDeveloperClient.desktop(gateway, token, tool, arguments); }
+                        catch (Exception error) { output = "عملیات دسکتاپ انجام نشد. اتصال، توکن و شناسه دستگاه را بررسی کنید."; }
+                        final String response = output;
+                        runOnUiThread(() -> {
+                            if (!isFinishing() && !isDestroyed()) answer.setText(response);
+                        });
+                    });
+                }).show();
     }
 
     private static String callOllama(String root, String model, String text) throws Exception {
