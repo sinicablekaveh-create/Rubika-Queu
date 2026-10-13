@@ -1,6 +1,8 @@
 {
-  "name": "rubika-queu-free-ai",
+  "name": "rubika-ai-server",
   "main": "index.mjs",
   "compatibility_date": "2026-10-01",
-  "ai": { "binding": "AI" }
+  "ai": {
+    "binding": "Ai"
+  }
 }
