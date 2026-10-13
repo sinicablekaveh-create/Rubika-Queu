@@ -7,7 +7,7 @@ const origin = 'https://example.workers.dev';
 let calls;
 const makeEnv = () => ({
   GATEWAY_TOKEN: token,
-  AI: { run: async (model, payload) => {
+  Ai: { run: async (model, payload) => {
     calls.push({ model, payload });
     return { response: 'متن اصلاح‌شده' };
   } }
