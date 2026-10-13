@@ -20,10 +20,18 @@ Official references:
 - https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/
 - https://developers.cloudflare.com/workers/ci-cd/builds/advanced-setups/
 
+## Existing Cloudflare Worker (confirmed by owner on 2026-10-13)
+
+- Cloudflare dashboard shows the **existing** production Worker `rubika-ai-server`, at `https://rubika-ai-server.sinicablekaveh.workers.dev/`; production Ready, no reported errors and Workers Logs enabled.
+- Workers AI binding's variable name is **`Ai`** (capital A, lowercase i). Source uses `env.Ai` and Wrangler AI binding is `Ai`; binding names are case-sensitive. Preserve the existing binding instead of adding another one.
+- Wrangler `name` must remain exactly **`rubika-ai-server`** to attach Git integration to the existing Worker. Repository root directory for deployment is `free-ai-worker`, with `npx wrangler deploy` as the deploy command.
+- Public URL `/`, `/health` and `/v1/chat/completions` presently return `Hello World!` on GET: the existing live code is only a starter; that is not evidence of working AI inference.
+- Do **not** connect an automatic production deployment to `main` until the reviewed Worker code and Wrangler config actually exist in `main`. The changes are on an unmerged draft PR. A production deploy replaces the old Hello World script; preserve rollback via Cloudflare Deployments.
+- Before testing private inference, create an owner-only **Secret** `GATEWAY_TOKEN` in Worker Settings > Variables and Secrets; do not display, copy to chat, or store in GitHub code. An authenticated POST is required to validate the Worker; GET to `/v1/chat/completions` is not an AI test.
 ## Phone-only setup after review and merge
 
-1. The owner signs in to https://dash.cloudflare.com/ and chooses **Workers Free**. Account setup/GitHub authorization is a user action; a GitHub admin grant does not provide Cloudflare access.
-2. In **Workers & Pages**, connect the GitHub repository `sinicablekaveh-create/Rubika-Queu`. The Cloudflare Workers Builds root directory is `free-ai-worker`; the deploy command is `npx wrangler deploy`. Deploy production from the `main` branch *only after PR review and merge*. Do not deploy production secrets to preview branches.
+1. The owner is already signed in to Cloudflare and has an existing `rubika-ai-server` Worker. Confirm the account is on **Workers Free** before any additional work. GitHub authorization is a separate user action.
+2. In the existing Worker, use **Settings → Builds → Connect** to connect the GitHub repository `sinicablekaveh-create/Rubika-Queu` only after the approved source is merged. Cloudflare Workers Builds root directory: `free-ai-worker`; deploy command: `npx wrangler deploy`; production branch: `main`. The Wrangler `name` must match `rubika-ai-server`. Do not expose production secrets to preview branches.
 3. Confirm the Worker has AI binding `AI` from its Wrangler configuration.
 4. In the deployed Worker's **Settings → Variables and Secrets**, create `GATEWAY_TOKEN` as a **secret** with at least 24 random characters, never as repository code or a message in ChatGPT. No `OPENAI_API_KEY` is needed. Rotate the token if disclosed.
 5. Visit your Worker origin `/health` (example: `https://rubika-queu-free-ai.<your-subdomain>.workers.dev/health`). HTTP 200 and `status: ok` check only the Worker routing, *not* model inference.
