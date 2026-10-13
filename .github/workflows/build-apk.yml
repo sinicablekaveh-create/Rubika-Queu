@@ -116,6 +116,9 @@ jobs:
             tests/AiPromptPolicyTests.java
           java -cp "$RUNNER_TEMP/ai-policy-tests" ir.sinicable.rubikaqueue.AiPromptPolicyTests
 
+      - name: Test APK update policy
+        run: python3 -m unittest discover -s tests -p 'test_apk_update_policy.py' -v
+
       - name: Install Android platform from runner SDK
         run: |
           set -euo pipefail
@@ -161,16 +164,33 @@ jobs:
           test -s "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
+          # The permanent v1.1 test key is not the certificate on the user's
+          # currently installed 1.3.1 (code 14) Android application.
           if [ -s signing/test-signing.p12 ]; then
             "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" | grep -qi '8747838d913e2f0f58dc66e432eb3753bc826e6a3f7e23eaf6bb799cd63af28b'
-            cp "$apk" Rubika-Queu-v1.3.1-test-signed.apk
+          fi
+          python3 scripts/apk_update_policy.py \
+            --apk "$apk" \
+            --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+            --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            --installed-package 'ir.sinicable.rubikaqueue' \
+            --installed-version-code 14 \
+            --installed-certificate 'fdb827fa66b05309a2e7a759bc03d9f22355b54cd74c63e74a5d889823087026' \
+            --report apk-update-report.json \
+            --summary "$GITHUB_STEP_SUMMARY"
+          classification="$(python3 -c 'import json; print(json.load(open("apk-update-report.json"))["classification"])')"
+          if [ "$classification" = 'UPDATE_CANDIDATE_UNTESTED' ]; then
+            cp "$apk" Rubika-Queu-v1.3.1-UPDATE-CANDIDATE-UNTESTED.apk
           else
-            cp "$apk" Rubika-Queu-v1.3.1-debug-NOT-UPDATABLE.apk
+            echo "::warning::Built APK cannot update the owner's installed v1.3.1 (code 14). Do not uninstall or clear app data."
+            cp "$apk" Rubika-Queu-v1.3.1-NOT-UPDATABLE.apk
           fi
 
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
           name: Rubika-Queu-v1.3.1-apk
-          path: Rubika-Queu-v1.3.1-*.apk
+          path: |
+            Rubika-Queu-v1.3.1-*.apk
+            apk-update-report.json
           if-no-files-found: error
