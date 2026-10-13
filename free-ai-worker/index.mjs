@@ -52,7 +52,7 @@ export default {
     }
     if (pathname !== '/v1/chat/completions') return json({ error: 'Not found' }, 404);
     if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-    if (!env?.AI || typeof env.AI.run !== 'function' ||
+    if (!env?.AI || typeof env.Ai.run !== 'function' ||
         typeof env.GATEWAY_TOKEN !== 'string' || env.GATEWAY_TOKEN.length < 24) {
       return json({ error: 'Gateway is not configured' }, 503);
     }
@@ -77,7 +77,7 @@ export default {
 
     let result;
     try {
-      result = await env.AI.run(MODEL, {
+      result = await env.Ai.run(MODEL, {
         messages: [
           { role: 'system', content: 'Improve ONLY the user-supplied Persian message draft. Return only the edited message, with no invented facts, instructions, secrets, or actions. Never send any message.' },
           { role: 'user', content: draft }
