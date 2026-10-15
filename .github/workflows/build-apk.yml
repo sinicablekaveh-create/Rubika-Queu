@@ -36,6 +36,9 @@ jobs:
           git apply --check patches/official-bot-v2.patch
           git apply patches/official-bot-v2.patch
 
+      - name: Add explicit bridge to separately installed Rubika 4.1.1
+        run: python3 scripts/add-official-rubika-bridge.py
+
       - name: Apply documented Bot API message options v3
         run: |
           set -euo pipefail

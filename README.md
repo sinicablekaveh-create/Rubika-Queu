@@ -29,6 +29,17 @@ Official references:
 - https://rubika.ir/botapi
 - https://rubika.ir/botapi/methods
 
+## Official Rubika 4.1.1 handoff
+
+The connected Drive library contains the separately installable official
+`Rubika_4.1.1_411.apk` (package `app.rbmain.a`, version code 411). The queue app
+does not embed or decompile that APK. Its build adds an explicit Android bridge
+that launches the installed official client and shares a user-approved text
+draft for review. The handoff never reads the official app's private data and
+never sends a message automatically. See
+[`docs/OFFICIAL_RUBIKA_4_1_1_BRIDGE.md`](docs/OFFICIAL_RUBIKA_4_1_1_BRIDGE.md)
+for the artifact fingerprint and device-test requirement.
+
 
 ## v1.0: زمان‌بندی و تاریخچهٔ ارسال
 - انتخاب تاریخ و ساعت محلی از بخش فایل و متن برای شروع خودکار صف، به‌همراه امکان زمان‌بندی مجدد.
