@@ -30,6 +30,12 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Refuse stable release outside main
+        if: github.event_name == 'workflow_dispatch' && inputs.artifact_mode == 'stable' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Stable APK signing is allowed only from protected main."
+          exit 1
+
       - name: Verify consolidated core CI coverage
         run: python3 -m unittest discover -s tests -p 'test_workflow_ci_consolidation.py' -v
 
