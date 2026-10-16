@@ -151,6 +151,15 @@ jobs:
             tests/QueueBackupCryptoTests.java
           java -cp "$RUNNER_TEMP/queue-backup-tests" ir.sinicable.rubikaqueue.QueueBackupCryptoTests
 
+      - name: Offline test non-root sidecar backup envelope (never contacts phone)
+        run: |
+          mkdir -p "$RUNNER_TEMP/sidecar-adb-tests"
+          javac -d "$RUNNER_TEMP/sidecar-adb-tests" \
+            overrides/queue-backup/QueueBackupCrypto.java \
+            tools/sidecar-recovery/SidecarAdbBackup.java \
+            tests/SidecarAdbBackupTests.java
+          java -cp "$RUNNER_TEMP/sidecar-adb-tests" ir.sinicable.rubikaqueue.SidecarAdbBackupTests
+
       - name: Test duplicate destination matching without Rubika connection
         run: |
           mkdir -p "$RUNNER_TEMP/duplicate-guard-tests"
