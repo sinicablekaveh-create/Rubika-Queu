@@ -24,3 +24,41 @@
 - Compatible only with future builds that include this feature and have
   a proper stable signer. If the current queue is still active, prefer
   retaining its installation rather than risking local data loss.
+
+
+## Conditional recovery of the ALREADY installed disposable-debug sidecar
+
+There may be one non-destructive way to recover a current debug-built app's
+**queue state**, without owning its old signing key: Android's `run-as`
+debuggable-app facility. This only works if the installed package really is
+debuggable and the phone explicitly authorizes an owner-controlled PC over
+USB debugging. This is **untested on the actual phone**. It does not recover
+the encrypted login session or sent-history SQLite database.
+
+**DO NOT uninstall, clear app data, or try to upgrade the current sidecar.**
+
+With the queue manually stopped on the phone, JDK 17+ and Android's official
+ADB platform-tools installed on a trusted Windows PC and USB debugging
+authorized, from a *local clone* of the repository run:
+
+```powershell
+.\tools\sidecar-recovery\backup-sidecar.ps1 -OutputPath "$HOME\Desktop\RubikaQueue-secure-backup.rqbak"
+```
+
+The script asks for explicit confirmation that the queue was stopped and for
+a new password. It reads **only** `files/job.json` from
+`ir.sinicable.rubikaqueue.sidecar` through ADB `run-as`; verifies two
+identical reads; creates the same encrypted backup envelope supported by the
+future Android import UI; never places plaintext queue records on the
+computer's disk, terminal, GitHub, or chat. It never invokes messaging or
+modifies the phone. It refuses to overwrite a backup path and fails safely
+when `run-as` access is not available.
+
+A successful backup is not yet proof that restore and Android installation
+work on the user's exact device. The future app must import this archive on
+an *empty installation* of the same account before any send is resumed. Test
+the restore on a spare device/profile first if possible. Migration across a
+different signing certificate still requires uninstalling the installed
+same-package app, which must never happen before independent backup
+verification and the user's explicit approval. Keep a separate backup of
+the original Excel source and any CSV history reports, where available.
