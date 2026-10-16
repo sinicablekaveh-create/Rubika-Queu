@@ -21,6 +21,16 @@ permissions:
   contents: read
 
 jobs:
+  sidecar-identity-review:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feat/rubika-sidecar-20261016'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check isolated test application identity
+        run: python3 -m unittest discover -s tests -p 'test_sidecar_identity.py' -v
+
   queue-runtime-launch-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -32,7 +42,8 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_queue_runtime_launch.py' -v
 
   build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # Test the separate-install diagnostic APK even while the PR is a draft.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -151,6 +162,9 @@ jobs:
       - name: Test queue startup diagnostics (no messages)
         run: python3 -m unittest discover -s tests -p 'test_queue_runtime_launch.py' -v
 
+      - name: Test side-by-side installation identity
+        run: python3 -m unittest discover -s tests -p 'test_sidecar_identity.py' -v
+
       - name: Test optional-provider fallback, plugin lifecycle and workflows
         run: |
           set -euo pipefail
@@ -242,6 +256,10 @@ jobs:
           set -euo pipefail
           apk='app/build/outputs/apk/debug/app-debug.apk'
           test -s "$apk"
+          python3 scripts/verify_sidecar_identity.py \
+            --apk "$apk" \
+            --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+            --report sidecar-identity-report.json
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
           python3 scripts/apk_update_policy.py \
@@ -260,6 +278,10 @@ jobs:
             echo "::warning::Built APK cannot update the owner's installed v1.3.2 (code 15). Do not uninstall or clear app data."
             cp "$apk" Rubika-Queu-v1.4.0-NOT-UPDATABLE.apk
           fi
+          # Rename only after the expected non-updatable identity was verified.
+          test "$classification" = "NOT_UPDATABLE"
+          test -s Rubika-Queu-v1.4.0-NOT-UPDATABLE.apk
+          mv Rubika-Queu-v1.4.0-NOT-UPDATABLE.apk Rubika-Queu-v1.4.0-SIDECAR-NEW-INSTALL-TEST.apk
 
       # Smoke-test the actual RELEASE signing path using a disposable CI key.
       # No permanent GitHub secret is exposed and no smoke-test APK is uploaded.
@@ -305,13 +327,14 @@ jobs:
           echo "Disposable signing smoke test passed; release APK and key will be deleted."
 
       - name: Upload verified test APK
-        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016')
         uses: actions/upload-artifact@v4
         with:
-          name: Rubika-Queu-v1.4.0-test-apk
+          name: Rubika-Queu-v1.4.0-sidecar-test-apk
           path: |
             Rubika-Queu-v1.4.0-*.apk
             apk-update-report.json
+            sidecar-identity-report.json
           if-no-files-found: error
 
       # Separate stable signer track. Never available to pull-request/push CI.
