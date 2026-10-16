@@ -55,6 +55,18 @@ class QueueRuntimeLaunchTests(unittest.TestCase):
         self.assertIn('JobStore.save(this,job)',service)
         self.assertEqual(service.count("client.send("),1)
 
+    def test_invalid_auth_gives_relogin_guidance_and_keeps_recipient_pending(self):
+        self.assertEqual(self.install().returncode,0)
+        main=(self.java/"MainActivity.java").read_text(encoding="utf-8")
+        service=(self.java/"QueueService.java").read_text(encoding="utf-8")
+        self.assertIn('"INVALID_AUTH".equalsIgnoreCase(code)',main)
+        self.assertIn("حذف ورود ذخیره‌شده از این برنامه",main)
+        self.assertIn('boolean authRejected=e instanceof RubikaClient.ApiError',service)
+        self.assertIn('if(authRejected){current.put("status","pending");current.put("error","");}',service)
+        self.assertIn('authRejected?"نیاز به ورود دوباره؛ "',service)
+        self.assertIn('else if(dispatch){current.put("status","uncertain")',service)
+        self.assertEqual(service.count("client.send("),1)
+
     def test_overlay_idempotent_and_rejects_unexpected_source(self):
         self.assertEqual(self.install().returncode,0)
         before=(self.java/"MainActivity.java").read_bytes()

@@ -106,6 +106,32 @@ service = once(service,
  Notification notification(String text){''',
     "persistent startup diagnostic"
 )
+# Invalid_auth is an explicit API rejection, not an unknown send outcome.
+# Preserve recipients in their previous pending state and require an ordinary login.
+main = once(
+    main,
+    'static String error(Throwable e){if(e instanceof RubikaClient.ApiError)return e.getMessage();',
+    'static String error(Throwable e){if(e instanceof RubikaClient.ApiError){'
+    'String code=((RubikaClient.ApiError)e).code;'
+    'if("INVALID_AUTH".equalsIgnoreCase(code))return "اعتبار ورود روبیکا رد شده است؛ '
+    'از «حذف ورود ذخیره‌شده از این برنامه» استفاده کنید و دوباره وارد شوید";'
+    'return e.getMessage();}',
+    "invalid authentication guidance",
+)
+service = once(
+    service,
+    '   try{if(job!=null){if(current!=null){if(dispatch){current.put("status","uncertain");current.put("error","ممکن است پیام ارسال شده باشد؛ "+MainActivity.error(e));}else if(current.optString("status").equals("sending"))current.put("status","pending");}\n'
+    '    String detail=MainActivity.error(e);checkpoint(job,(dispatch?"نتیجه ارسال نامشخص؛ ":"توقف؛ ")+detail);}}',
+    '   try{if(job!=null){\n'
+    '    boolean authRejected=e instanceof RubikaClient.ApiError && "INVALID_AUTH".equalsIgnoreCase(((RubikaClient.ApiError)e).code);\n'
+    '    if(current!=null){if(authRejected){current.put("status","pending");current.put("error","");}\n'
+    '     else if(dispatch){current.put("status","uncertain");current.put("error","ممکن است پیام ارسال شده باشد؛ "+MainActivity.error(e));}\n'
+    '     else if(current.optString("status").equals("sending"))current.put("status","pending");}\n'
+    '    String detail=MainActivity.error(e);\n'
+    '    checkpoint(job,(authRejected?"نیاز به ورود دوباره؛ ":(dispatch?"نتیجه ارسال نامشخص؛ ":"توقف؛ "))+detail);}}',
+    "invalid authentication queue handling",
+)
+
 # No writes if any expected source pattern was not found.
 main_path.write_text(main,encoding="utf-8")
 service_path.write_text(service,encoding="utf-8")
