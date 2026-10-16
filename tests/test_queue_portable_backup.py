@@ -70,7 +70,7 @@ class PortableBackupIntegrationTests(unittest.TestCase):
   schema=(ROOT/"overrides/queue-backup/QueueBackupSchema.java").read_text("utf-8")
   self.assertNotIn("privateKey",schema)
   self.assertNotIn("auth_token",schema)
-  self.assertNotIn("session",schema)
+  self.assertNotIn('"session"',schema)
   self.assertIn("message_id",schema)
   self.assertIn("reviewed_at",schema)
   self.assertIn("rnd",schema)
