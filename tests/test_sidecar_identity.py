@@ -23,6 +23,7 @@ class SidecarBuildTests(unittest.TestCase):
         self.assertIn('android:allowBackup="false"',original)
         self.assertNotIn("نسخه دوم",original)
         self.assertIn("صف روبیکا • نسخه دوم",overlay)
+        self.assertIn('tools:replace="android:label"',overlay)
         self.assertNotIn("android:sharedUserId",original+overlay)
         icon=(ROOT/"app/src/debug/res/drawable/icon.xml").read_text(encoding="utf-8")
         self.assertIn("#3543A5",icon)
