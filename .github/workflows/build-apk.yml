@@ -21,6 +21,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Verify consolidated core CI coverage
+        run: python3 -m unittest discover -s tests -p 'test_workflow_ci_consolidation.py' -v
+
       - name: Extract audited application source bundle
         run: |
           set -euo pipefail
