@@ -35,11 +35,14 @@ GitHub Actions workflow does not depend on those environments.
 4. A distinct job validates the generated diff and rejects changes outside
    the allowed assistant, discovery, tests and documentation paths. It then
    opens a **draft PR**, if the diff is syntactically valid and non-empty.
-5. Read the proposed source code; once approved, mark the PR **Ready for
-   review**. The Android APK build workflow intentionally skips draft PRs
-   to avoid loading signing secrets alongside unreviewed generated code.
-   Complete CI, Android lint, APK signature validation, and a human review
-   before merging. Merge and release are never automatic.
+5. Review the proposed source code and workflow changes; pull-request CI
+   executes the proposed code, including while a PR is a draft. The APK
+   verification workflow runs on draft PRs, so tests do not require marking
+   the PR ready. Keep the PR in draft during review and inspect workflow
+   changes and their permissions. PR CI builds and verifies a test APK; it
+   does not run the stable release path, which remains a manually dispatched
+   workflow on protected `main`. Complete required CI and human review before
+   merging. Merge and release are not automatic.
 
 Unsafe, invalid, overlarge, or empty patches are rejected without opening
 a PR. Codex can generate a patch that fails to apply; inspect the Actions
