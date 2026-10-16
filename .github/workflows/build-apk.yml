@@ -13,7 +13,6 @@ permissions:
 
 jobs:
   build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -58,6 +57,12 @@ jobs:
       - name: Install message preflight and safe-dispatch policy
         run: python3 scripts/add-message-queue-policy.py
 
+      - name: Install native RTL dashboard after audited overlays
+        run: python3 scripts/add-native-dashboard.py
+
+      - name: Test native dashboard safety and launcher migration
+        run: python3 -m unittest discover -s tests -p 'test_native_dashboard_installer.py' -v
+
       - name: Install dependency-free plugin core
         run: python3 scripts/add-plugin-system.py
 
@@ -92,6 +97,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Test native offline search preview policy
+        run: |
+          mkdir -p "$RUNNER_TEMP/native-preview-tests"
+          javac -encoding UTF-8 -d "$RUNNER_TEMP/native-preview-tests" \
+            overrides/native-ui/NativeDashboardPreviewPolicy.java \
+            tests/NativeDashboardPreviewPolicyTests.java
+          java -cp "$RUNNER_TEMP/native-preview-tests" ir.sinicable.rubikaqueue.NativeDashboardPreviewPolicyTests
 
       - name: Test queue-start discovery policy
         run: |
@@ -243,17 +256,17 @@ jobs:
             --summary "$GITHUB_STEP_SUMMARY"
           classification="$(python3 -c 'import json; print(json.load(open("apk-update-report.json"))["classification"])')"
           if [ "$classification" = 'UPDATE_CANDIDATE_UNTESTED' ]; then
-            cp "$apk" Rubika-Queu-v1.3.2-UPDATE-CANDIDATE-UNTESTED.apk
+            cp "$apk" Rubika-Queu-v1.3.3-UPDATE-CANDIDATE-UNTESTED.apk
           else
             echo "::warning::Built APK cannot update the owner's installed v1.3.2 (code 15). Do not uninstall or clear app data."
-            cp "$apk" Rubika-Queu-v1.3.2-NOT-UPDATABLE.apk
+            cp "$apk" Rubika-Queu-v1.3.3-NOT-UPDATABLE.apk
           fi
 
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rubika-Queu-v1.3.2-apk
+          name: Rubika-Queu-v1.3.3-UI-PREVIEW-apk
           path: |
-            Rubika-Queu-v1.3.2-*.apk
+            Rubika-Queu-v1.3.3-*.apk
             apk-update-report.json
           if-no-files-found: error
