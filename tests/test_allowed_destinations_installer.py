@@ -18,6 +18,10 @@ class AllowedDestinationInstallerTests(unittest.TestCase):
         self.work = pathlib.Path(self.temp.name)
         with zipfile.ZipFile(ZIP) as source:
             source.extractall(self.work)
+        # The production build keeps the tracked current AndroidManifest.xml,
+        # rather than the older manifest inside the extracted v1.1 source zip.
+        shutil.copy(ROOT / "app/src/main/AndroidManifest.xml",
+                    self.work / "app/src/main/AndroidManifest.xml")
         (self.work / "overrides/allowed-destinations").mkdir(parents=True)
         for name in NAMES:
             shutil.copy(ROOT / "overrides/allowed-destinations" / name,
