@@ -4,13 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       artifact_mode:
-        description: "Test APK or manually requested new-signer stable APK"
+        description: "Test APK, original-package stable, or second-app stable (manual only)"
         required: true
         default: test
         type: choice
         options:
           - test
           - stable
+          - sidecar_stable
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -22,7 +23,7 @@ permissions:
 
 jobs:
   sidecar-identity-review:
-    if: github.event_name == 'pull_request' && (github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016')
+    if: github.event_name == 'pull_request' && (github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +45,7 @@ jobs:
 
   build:
     # Test the separate-install diagnostic APK even while the PR is a draft.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016'
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -53,7 +54,7 @@ jobs:
           persist-credentials: false
 
       - name: Refuse stable release outside main
-        if: github.event_name == 'workflow_dispatch' && inputs.artifact_mode == 'stable' && github.ref != 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && (inputs.artifact_mode == 'stable' || inputs.artifact_mode == 'sidecar_stable') && github.ref != 'refs/heads/main'
         run: |
           echo "::error::Stable APK signing is allowed only from protected main."
           exit 1
@@ -237,6 +238,9 @@ jobs:
       - name: Test stable signing release guardrails
         run: python3 -m unittest discover -s tests -p 'test_stable_release.py' -v
 
+      - name: Test permanent-signer sidecar verification and separation
+        run: python3 -m unittest discover -s tests -p 'test_sidecar_stable_release.py' -v
+
       - name: Test trusted-device signer provisioning safety
         run: python3 -m unittest discover -s tests -p 'test_stable_signing_provision.py' -v
 
@@ -341,8 +345,43 @@ jobs:
             --report "$RUNNER_TEMP/ci-release-smoke-report.json"
           echo "Disposable signing smoke test passed; release APK and key will be deleted."
 
+      # No persistent signing key is used or uploaded in CI.
+      - name: Smoke-test separate sidecar stable build with disposable signer
+        if: github.event_name != 'workflow_dispatch' || inputs.artifact_mode == 'test'
+        env:
+          RUBIKA_SIDECAR_KEYSTORE_PASSWORD: ci-disposable-not-a-secret
+          RUBIKA_SIDECAR_KEY_PASSWORD: ci-disposable-not-a-secret
+          RUBIKA_SIDECAR_KEY_ALIAS: ci-disposable-sidecar
+          RUBIKA_SIDECAR_KEYSTORE_PATH: signing/ci-sidecar-disposable.p12
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p signing
+          trap 'rm -f signing/ci-sidecar-disposable.p12 app/build/outputs/apk/sidecarStable/app-sidecarStable.apk' EXIT
+          keytool -genkeypair -alias "$RUBIKA_SIDECAR_KEY_ALIAS" -keyalg RSA -keysize 3072 \
+            -sigalg SHA256withRSA -validity 1 -storetype PKCS12 \
+            -keystore "$RUBIKA_SIDECAR_KEYSTORE_PATH" \
+            -dname "CN=Disposable Sidecar CI, OU=Tests, O=Rubika Queu, C=IR" \
+            -storepass:env RUBIKA_SIDECAR_KEYSTORE_PASSWORD \
+            -keypass:env RUBIKA_SIDECAR_KEY_PASSWORD -noprompt
+          pin="$(keytool -list -v -storetype PKCS12 -keystore "$RUBIKA_SIDECAR_KEYSTORE_PATH" \
+            -alias "$RUBIKA_SIDECAR_KEY_ALIAS" -storepass:env RUBIKA_SIDECAR_KEYSTORE_PASSWORD | \
+            awk '/^[[:space:]]*SHA256:/ { print $2; exit }')"
+          test -n "$pin"
+          ./gradlew --no-daemon --max-workers=4 lintSidecarStable assembleSidecarStable
+          apk='app/build/outputs/apk/sidecarStable/app-sidecarStable.apk'
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
+          python3 scripts/verify_sidecar_stable.py \
+            --apk "$apk" --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+            --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            --expected-certificate "$pin" \
+            --report "$RUNNER_TEMP/ci-sidecar-stable-smoke-report.json"
+          echo "CI smoke test passed; disposable sidecar signing key and release APK deleted."
+
       - name: Upload verified test APK
-        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016')
+        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && inputs.artifact_mode != 'sidecar_stable' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016')
         uses: actions/upload-artifact@v4
         with:
           name: Rubika-Queu-v1.4.0-sidecar-test-apk
@@ -413,4 +452,68 @@ jobs:
           path: |
             Rubika-Queu-v1.4.0-NEW-INSTALL-STABLE.apk
             stable-release-report.json
+          if-no-files-found: error
+
+      # The second-app stable signer is a separate, opt-in owner-controlled track.
+      # These steps NEVER run on PRs or pushes, and never touch installed phone data.
+      - name: Restore owner-controlled sidecar stable signer
+        if: github.event_name == 'workflow_dispatch' && inputs.artifact_mode == 'sidecar_stable' && github.ref == 'refs/heads/main'
+        env:
+          SIDECAR_KEY_BASE64: ${{ secrets.RUBIKA_SIDECAR_KEYSTORE_BASE64 }}
+          SIDECAR_PASSWORD: ${{ secrets.RUBIKA_SIDECAR_KEYSTORE_PASSWORD }}
+          SIDECAR_ALIAS: ${{ secrets.RUBIKA_SIDECAR_KEY_ALIAS }}
+          SIDECAR_KEY_PASSWORD: ${{ secrets.RUBIKA_SIDECAR_KEY_PASSWORD }}
+          SIDECAR_PUBLIC_CERT: ${{ vars.RUBIKA_SIDECAR_SIGNER_SHA256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for var in SIDECAR_KEY_BASE64 SIDECAR_PASSWORD SIDECAR_ALIAS SIDECAR_KEY_PASSWORD SIDECAR_PUBLIC_CERT; do
+            if [ -z "${!var}" ]; then
+              echo "::error::Missing sidecar signing input: $var. No APK produced."
+              exit 1
+            fi
+          done
+          umask 077
+          mkdir -p signing
+          printf '%s' "$SIDECAR_KEY_BASE64" | base64 --decode > signing/sidecar-stable-release.p12
+          test -s signing/sidecar-stable-release.p12
+
+      - name: Build pinned permanent-signer second-app APK
+        if: github.event_name == 'workflow_dispatch' && inputs.artifact_mode == 'sidecar_stable' && github.ref == 'refs/heads/main'
+        env:
+          RUBIKA_SIDECAR_KEYSTORE_PASSWORD: ${{ secrets.RUBIKA_SIDECAR_KEYSTORE_PASSWORD }}
+          RUBIKA_SIDECAR_KEY_ALIAS: ${{ secrets.RUBIKA_SIDECAR_KEY_ALIAS }}
+          RUBIKA_SIDECAR_KEY_PASSWORD: ${{ secrets.RUBIKA_SIDECAR_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --max-workers=4 lintSidecarStable assembleSidecarStable
+          test -s app/build/outputs/apk/sidecarStable/app-sidecarStable.apk
+
+      - name: Verify permanent sidecar certificate and independent package
+        if: github.event_name == 'workflow_dispatch' && inputs.artifact_mode == 'sidecar_stable' && github.ref == 'refs/heads/main'
+        env:
+          SIDECAR_EXPECTED_CERT: ${{ vars.RUBIKA_SIDECAR_SIGNER_SHA256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk='app/build/outputs/apk/sidecarStable/app-sidecarStable.apk'
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
+          python3 scripts/verify_sidecar_stable.py \
+            --apk "$apk" --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+            --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            --expected-certificate "$SIDECAR_EXPECTED_CERT" \
+            --report sidecar-stable-release-report.json \
+            --summary "$GITHUB_STEP_SUMMARY"
+          cp "$apk" Rubika-Queu-SIDECAR-STABLE-FIRST-INSTALL.apk
+
+      - name: Upload verified new-signer second-app APK (manual only)
+        if: github.event_name == 'workflow_dispatch' && inputs.artifact_mode == 'sidecar_stable' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rubika-Queu-sidecar-stable-first-install
+          path: |
+            Rubika-Queu-SIDECAR-STABLE-FIRST-INSTALL.apk
+            sidecar-stable-release-report.json
           if-no-files-found: error

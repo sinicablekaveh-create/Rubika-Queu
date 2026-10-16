@@ -4,6 +4,8 @@ plugins {
 
 // CI may substitute a disposable test keystore without touching the owner's key.
 def stableKeyFile = rootProject.file(System.getenv('RUBIKA_STABLE_KEYSTORE_PATH') ?: 'signing/stable-release.p12')
+// Dedicated, permanent signer for the *second* app. Never reuse the original app's key.
+def sidecarKeyFile = rootProject.file(System.getenv('RUBIKA_SIDECAR_KEYSTORE_PATH') ?: 'signing/sidecar-stable-release.p12')
 
 android {
     namespace 'ir.sinicable.rubikaqueue'
@@ -25,6 +27,13 @@ android {
             keyAlias System.getenv('RUBIKA_STABLE_KEY_ALIAS') ?: ''
             keyPassword System.getenv('RUBIKA_STABLE_KEY_PASSWORD') ?: ''
         }
+        sidecarStable {
+            storeFile sidecarKeyFile
+            storeType 'pkcs12'
+            storePassword System.getenv('RUBIKA_SIDECAR_KEYSTORE_PASSWORD') ?: ''
+            keyAlias System.getenv('RUBIKA_SIDECAR_KEY_ALIAS') ?: ''
+            keyPassword System.getenv('RUBIKA_SIDECAR_KEY_PASSWORD') ?: ''
+        }
     }
 
     buildTypes {
@@ -37,10 +46,19 @@ android {
             minifyEnabled false
         }
         release {
-            // Only explicit, owner-provisioned, stable-release signing; never use debug keys.
+            // Original-package release signing track remains unchanged.
             if (stableKeyFile.exists()) {
                 signingConfig signingConfigs.stableRelease
             }
+            minifyEnabled false
+        }
+        sidecarStable {
+            // A distinct *non-debuggable* release for the second app only.
+            initWith release
+            applicationIdSuffix '.sidecar'
+            versionNameSuffix '-sidecar-stable'
+            matchingFallbacks = ['release']
+            signingConfig = sidecarKeyFile.exists() ? signingConfigs.sidecarStable : null
             minifyEnabled false
         }
     }

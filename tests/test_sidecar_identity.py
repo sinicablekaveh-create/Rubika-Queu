@@ -15,7 +15,7 @@ class SidecarBuildTests(unittest.TestCase):
         self.assertIn("namespace 'ir.sinicable.rubikaqueue'",gradle)
         self.assertIn("applicationIdSuffix '.sidecar'",gradle)
         self.assertIn("versionNameSuffix '-sidecar-test'",gradle)
-        self.assertEqual(gradle.count("applicationIdSuffix"),1)
+        # Both the disposable debug and the permanently signed sidecar have their\n        # own suffix; the original release build type has no suffix.\n        self.assertEqual(gradle.count("applicationIdSuffix '.sidecar'"),2)\n        release=gradle.split("        release {",1)[1].split("        sidecarStable {",1)[0]\n        self.assertNotIn("applicationIdSuffix",release)
 
     def test_debug_only_label_icon_and_no_backup(self):
         original=(ROOT/"app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
