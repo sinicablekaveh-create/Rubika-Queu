@@ -20,6 +20,38 @@ permissions:
   contents: read
 
 jobs:
+  phone-companion-build:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feat/rubika-phone-manager-20261017'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Build native Rubika Phone Manager
+        working-directory: phone-companion
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Verify companion APK exists
+        run: |
+          test -s phone-companion/app/build/outputs/apk/debug/app-debug.apk
+          sha256sum phone-companion/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rubika-Phone-Manager-v1.0.0-TEST-APK
+          path: phone-companion/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 21
+
   sidecar-identity-review:
     if: github.event_name == 'pull_request' && (github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016')
     runs-on: ubuntu-latest
