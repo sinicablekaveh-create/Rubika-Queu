@@ -306,7 +306,8 @@ jobs:
           echo "Disposable signing smoke test passed; release APK and key will be deleted."
 
       - name: Upload verified test APK
-        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+        # Diagnostic APK only; stable release signing remains manual-only.
+        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'fix/queue-runtime-send-20261016')
         uses: actions/upload-artifact@v4
         with:
           name: Rubika-Queu-v1.4.0-test-apk

@@ -41,6 +41,8 @@ class QueueRuntimeLaunchTests(unittest.TestCase):
         diagnosis=main.split("void showQueueDiagnostics()",1)[1].split("void resolveUnknown()",1)[0]
         self.assertIn("JobStore.uncertain(job)",diagnosis)
         self.assertIn("زمان‌بندی آینده",diagnosis)
+        self.assertIn('setNeutralButton("کپی گزارش"', diagnosis)
+        self.assertIn('ClipData.newPlainText("وضعیت صف",out.toString())', diagnosis)
         self.assertNotIn('append(client.phone)',diagnosis)
         self.assertNotIn('getString("message")',diagnosis)
 

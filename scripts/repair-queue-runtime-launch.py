@@ -76,7 +76,10 @@ main = once(
    view.setText(out.toString());view.setTextIsSelectable(true);
    ScrollView scroll=new ScrollView(this);scroll.addView(view);
    new AlertDialog.Builder(this).setTitle("تشخیص بدون ارسال پیام").setView(scroll)
-    .setPositiveButton("بستن",null).show();
+    .setNeutralButton("کپی گزارش", (dialog,which)->{
+     android.content.ClipboardManager clipboard=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+     if(clipboard!=null){clipboard.setPrimaryClip(ClipData.newPlainText("وضعیت صف",out.toString()));toast("گزارش کپی شد");}
+    }).setPositiveButton("بستن",null).show();
   }catch(Exception e){toast(error(e));}
  }
  void resolveUnknown(){''',
