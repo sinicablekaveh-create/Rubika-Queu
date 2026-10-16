@@ -3,12 +3,12 @@ package ir.sinicable.rubikaqueue;
 public final class QueueDuplicateGuardTests {
  static void check(boolean result,String reason){if(!result)throw new AssertionError(reason);}
  public static void main(String[] args){
-  String local=QueueDuplicateGuard.destinationKey("contact","09195041560","");
+  String local=QueueDuplicateGuard.destinationKey("contact","09123456789","");
   check(!local.isEmpty(),"phone key missing");
-  check(local.equals(QueueDuplicateGuard.destinationKey("contact","+98 919 504 1560","")),"international variation");
-  check(local.equals(QueueDuplicateGuard.destinationKey("contact","0098-919-504-1560","")),"00 prefix");
-  check(local.equals(QueueDuplicateGuard.destinationKey("contact","۰۹۱۹۵۰۴۱۵۶۰","")),"Persian digits");
-  check(!local.equals(QueueDuplicateGuard.destinationKey("contact","09195041561","")),"different phone");
+  check(local.equals(QueueDuplicateGuard.destinationKey("contact","+98 912 345 6789","")),"international variation");
+  check(local.equals(QueueDuplicateGuard.destinationKey("contact","0098-912-345-6789","")),"00 prefix");
+  check(local.equals(QueueDuplicateGuard.destinationKey("contact","۰۹۱۲۳۴۵۶۷۸۹","")),"Persian digits");
+  check(!local.equals(QueueDuplicateGuard.destinationKey("contact","09123456780","")),"different phone");
   check(!local.equals(QueueDuplicateGuard.destinationKey("group","","g0123")),"phone and group isolation");
   check("group:g0123".equals(QueueDuplicateGuard.destinationKey("group",""," g0123 ")),"same group");
   check(!QueueDuplicateGuard.destinationKey("group","","g0123").equals(
