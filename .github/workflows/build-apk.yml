@@ -71,9 +71,6 @@ jobs:
           cp -a "$RUNNER_TEMP/rubika-src/app/src/main/java" app/src/main/
           cp -a "$RUNNER_TEMP/rubika-src/app/src/main/assets" app/src/main/
 
-      - name: Audit queue backup integration points (static source only)
-        run: python3 scripts/inspect-queue-backup-surface.py
-
       - name: Apply official Bot API v2 patch to extracted source
         run: |
           set -euo pipefail
@@ -107,6 +104,9 @@ jobs:
 
       - name: Install queue duplicate-destination guard
         run: python3 scripts/add-queue-duplicate-guard.py
+
+      - name: Install encrypted portable queue backup (no sending)
+        run: python3 scripts/add-queue-portable-backup.py
 
       - name: Install dependency-free plugin core
         run: python3 scripts/add-plugin-system.py
@@ -142,6 +142,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Test AES-GCM portable backup with JDK only
+        run: |
+          mkdir -p "$RUNNER_TEMP/queue-backup-tests"
+          javac -d "$RUNNER_TEMP/queue-backup-tests" \
+            overrides/queue-backup/QueueBackupCrypto.java \
+            tests/QueueBackupCryptoTests.java
+          java -cp "$RUNNER_TEMP/queue-backup-tests" ir.sinicable.rubikaqueue.QueueBackupCryptoTests
 
       - name: Test duplicate destination matching without Rubika connection
         run: |
@@ -183,6 +191,9 @@ jobs:
 
       - name: Test duplicate destination overlay (offline only)
         run: python3 -m unittest discover -s tests -p 'test_queue_duplicate_guard.py' -v
+
+      - name: Test encrypted queue backup overlay without messaging
+        run: python3 -m unittest discover -s tests -p 'test_queue_portable_backup.py' -v
 
       - name: Test optional-provider fallback, plugin lifecycle and workflows
         run: |
