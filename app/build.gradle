@@ -2,6 +2,9 @@ plugins {
     id 'com.android.application'
 }
 
+// CI may substitute a disposable test keystore without touching the owner's key.
+def stableKeyFile = rootProject.file(System.getenv('RUBIKA_STABLE_KEYSTORE_PATH') ?: 'signing/stable-release.p12')
+
 android {
     namespace 'ir.sinicable.rubikaqueue'
     compileSdk 35
@@ -16,7 +19,7 @@ android {
 
     signingConfigs {
         stableRelease {
-            storeFile rootProject.file('signing/stable-release.p12')
+            storeFile stableKeyFile
             storeType 'pkcs12'
             storePassword System.getenv('RUBIKA_STABLE_KEYSTORE_PASSWORD') ?: ''
             keyAlias System.getenv('RUBIKA_STABLE_KEY_ALIAS') ?: ''
@@ -31,7 +34,7 @@ android {
         }
         release {
             // Only explicit, owner-provisioned, stable-release signing; never use debug keys.
-            if (rootProject.file('signing/stable-release.p12').exists()) {
+            if (stableKeyFile.exists()) {
                 signingConfig signingConfigs.stableRelease
             }
             minifyEnabled false
