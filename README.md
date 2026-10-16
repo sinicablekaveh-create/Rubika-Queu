@@ -8,7 +8,7 @@ The main queue screen now offers **گزارش توسعه برای ChatGPT**: an 
 
 ## Automatic discovery when starting the queue
 
-The existing group and public business-contact finder can now start automatically when the message queue starts. It uses the saved search terms and group/contact switches. The setting is enabled by default and can be turned off in **گروه‌ها و شماره تماس‌ها**. To avoid concurrent Rubika requests, the read-only discovery pass runs first; queue delivery resumes after discovery finishes. If discovery fails, the queue continues and records that status. Stopping the queue during discovery stops the search and leaves any saved findings intact. Discovery never reads private member/contact lists and never sends messages.
+The existing group and public business-contact finder can now start automatically when the message queue starts. It uses the saved search terms and group/contact switches. The setting is enabled by default and can be turned off in **گروه‌ها و شماره تماس‌ها**. To avoid concurrent Rubika requests, the read-only discovery pass runs first; queue delivery resumes after discovery finishes. A non-rate-related discovery failure is recorded and the queue continues; a rate-limit or authentication error stops it. Stopping the queue during discovery stops the search and leaves any saved findings intact. Discovery never reads private member/contact lists and never sends messages.
 
 See [queue-start discovery](docs/QUEUE_START_AUTO_DISCOVERY.md) for manual test steps and behavior boundaries.
 
