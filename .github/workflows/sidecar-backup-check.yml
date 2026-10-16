@@ -1,0 +1,23 @@
+name: Verify paused sidecar backup helper (offline)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/backup_sidecar_queue.py
+      - tests/test_sidecar_backup.py
+      - docs/PAUSED_SIDECAR_BACKUP_FA.md
+      - .github/workflows/sidecar-backup-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backup-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install local cryptography dependency (no Rubika access)
+        run: python3 -m pip install cryptography
+      - name: Test encryption, tamper rejection, strict read-only adb and safe paths
+        run: python3 -m unittest discover -s tests -p test_sidecar_backup.py -v
