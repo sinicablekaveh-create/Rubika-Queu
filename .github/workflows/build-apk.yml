@@ -21,6 +21,20 @@ permissions:
   contents: read
 
 jobs:
+  queue-runtime-source-audit:
+    if: github.event_name == 'pull_request' && github.head_ref == 'fix/queue-runtime-send-20261016'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Export audited source bundle for code-level diagnosis only
+        uses: actions/upload-artifact@v4
+        with:
+          name: queue-runtime-source-audit
+          path: source/Rubika-Queu-v1.1-personal-queue-source.zip
+          if-no-files-found: error
+
   build:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
