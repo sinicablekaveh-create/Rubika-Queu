@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   sidecar-identity-review:
-    if: github.event_name == 'pull_request' && github.head_ref == 'feat/rubika-sidecar-20261016'
+    if: github.event_name == 'pull_request' && (github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,9 +41,10 @@ jobs:
       - name: Validate queue runtime launch repairs without sending
         run: python3 -m unittest discover -s tests -p 'test_queue_runtime_launch.py' -v
 
+
   build:
     # Test the separate-install diagnostic APK even while the PR is a draft.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016'
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -100,6 +101,9 @@ jobs:
       - name: Repair queue startup feedback and Android notification permission handling
         run: python3 scripts/repair-queue-runtime-launch.py
 
+      - name: Install queue duplicate-destination guard
+        run: python3 scripts/add-queue-duplicate-guard.py
+
       - name: Install dependency-free plugin core
         run: python3 scripts/add-plugin-system.py
 
@@ -135,6 +139,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Test duplicate destination matching without Rubika connection
+        run: |
+          mkdir -p "$RUNNER_TEMP/duplicate-guard-tests"
+          javac -d "$RUNNER_TEMP/duplicate-guard-tests" \
+            overrides/queue-safety/QueueDuplicateGuard.java \
+            tests/QueueDuplicateGuardTests.java
+          java -cp "$RUNNER_TEMP/duplicate-guard-tests" ir.sinicable.rubikaqueue.QueueDuplicateGuardTests
+
       - name: Test queue-start discovery policy
         run: |
           mkdir -p "$RUNNER_TEMP/queue-discovery-tests"
@@ -164,6 +176,9 @@ jobs:
 
       - name: Test side-by-side installation identity
         run: python3 -m unittest discover -s tests -p 'test_sidecar_identity.py' -v
+
+      - name: Test duplicate destination overlay (offline only)
+        run: python3 -m unittest discover -s tests -p 'test_queue_duplicate_guard.py' -v
 
       - name: Test optional-provider fallback, plugin lifecycle and workflows
         run: |
@@ -327,7 +342,7 @@ jobs:
           echo "Disposable signing smoke test passed; release APK and key will be deleted."
 
       - name: Upload verified test APK
-        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016')
+        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016')
         uses: actions/upload-artifact@v4
         with:
           name: Rubika-Queu-v1.4.0-sidecar-test-apk
