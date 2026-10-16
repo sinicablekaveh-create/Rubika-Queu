@@ -7,7 +7,7 @@ class FullDashboardTests(unittest.TestCase):
   t=tempfile.TemporaryDirectory();self.addCleanup(t.cleanup);self.root=Path(t.name)
   d=self.root/"app/src/main/java/ir/sinicable/rubikaqueue";d.mkdir(parents=True)
   (d/"MainActivity.java").write_text('button(q,"تشخیص علت کارنکردن صف (بدون ارسال)",()->showQueueDiagnostics());',encoding="utf-8")
-  m=self.root/"app/src/main/AndroidManifest.xml";m.parent.mkdir(parents=True)
+  m=self.root/"app/src/main/AndroidManifest.xml";m.parent.mkdir(parents=True,exist_ok=True)
   m.write_text('<manifest><application></application></manifest>',encoding="utf-8")
   src=self.root/"overrides/full-dashboard/FullDashboardActivity.java";src.parent.mkdir(parents=True)
   shutil.copy(ROOT/"overrides/full-dashboard/FullDashboardActivity.java",src)
