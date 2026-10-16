@@ -21,23 +21,19 @@ permissions:
   contents: read
 
 jobs:
-  queue-runtime-source-audit:
-    if: github.event_name == 'pull_request' && github.head_ref == 'fix/queue-runtime-send-20261016'
+  queue-runtime-launch-review:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      # This archive is source-only and carries no account state or messaging credentials.
-      - name: Export audited source bundle for code-level diagnosis only
-        uses: actions/upload-artifact@v4
-        with:
-          name: queue-runtime-source-audit
-          path: source/Rubika-Queu-v1.1-personal-queue-source.zip
-          if-no-files-found: error
+      - name: Validate queue runtime launch repairs without sending
+        run: python3 -m unittest discover -s tests -p 'test_queue_runtime_launch.py' -v
 
   build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # Temporarily run full Android compile on this diagnostic draft PR.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'fix/queue-runtime-send-20261016'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -90,6 +86,9 @@ jobs:
 
       - name: Install message preflight and safe-dispatch policy
         run: python3 scripts/add-message-queue-policy.py
+
+      - name: Repair queue startup feedback and Android notification permission handling
+        run: python3 scripts/repair-queue-runtime-launch.py
 
       - name: Install dependency-free plugin core
         run: python3 scripts/add-plugin-system.py
@@ -149,6 +148,9 @@ jobs:
             tests/MessageQueuePolicyTests.java
           java -cp "$RUNNER_TEMP/message-policy-tests" ir.sinicable.rubikaqueue.MessageQueuePolicyTests
           python3 -m unittest discover -s tests -p 'test_message_policy_installer.py' -v
+
+      - name: Test queue startup diagnostics (no messages)
+        run: python3 -m unittest discover -s tests -p 'test_queue_runtime_launch.py' -v
 
       - name: Test optional-provider fallback, plugin lifecycle and workflows
         run: |
