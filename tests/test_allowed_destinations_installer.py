@@ -20,8 +20,16 @@ class AllowedDestinationInstallerTests(unittest.TestCase):
             source.extractall(self.work)
         # The production build keeps the tracked current AndroidManifest.xml,
         # rather than the older manifest inside the extracted v1.1 source zip.
-        shutil.copy(ROOT / "app/src/main/AndroidManifest.xml",
-                    self.work / "app/src/main/AndroidManifest.xml")
+        # When this test runs inside the Android build job, the installer has
+        # already modified the checkout manifest. Reset only this isolated
+        # fixture to the tracked pre-install state, then test installation.
+        manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+        activity = '    <activity android:name=".AllowedDestinationsActivity" android:exported="false"/>\n'
+        self.assertLessEqual(manifest.count(activity), 1)
+        manifest = manifest.replace(activity, "")
+        (self.work / "app/src/main/AndroidManifest.xml").write_text(
+            manifest, encoding="utf-8"
+        )
         (self.work / "overrides/allowed-destinations").mkdir(parents=True)
         for name in NAMES:
             shutil.copy(ROOT / "overrides/allowed-destinations" / name,
