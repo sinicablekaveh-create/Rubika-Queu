@@ -14,8 +14,12 @@ and have strictly increasing `versionCode`.
 
 ## What CI already does
 
-- Pull request and normal push runs build only an isolated **debug test APK**
-  with a throwaway signing key. Never offer such an APK as an updatable release.
+- Pull request and normal push runs upload only an isolated **debug test APK**
+  with a throwaway signing key. They also smoke-test the *actual* release signing
+  configuration using a separate, short-lived disposable PKCS#12 key and a
+  real `assembleRelease` build. This temporary release APK and its key are
+  deleted before the job finishes and are **never uploaded**. Neither CI test
+  artifact is an updatable production release.
 - Stable release is a **manual workflow_dispatch** of
   `.github/workflows/build-apk.yml` with `artifact_mode=stable`, on `main`
   only, after the source, policies and tests pass.

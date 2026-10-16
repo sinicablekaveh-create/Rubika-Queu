@@ -20,7 +20,29 @@ permissions:
   contents: read
 
 jobs:
+  sidecar-identity-review:
+    if: github.event_name == 'pull_request' && (github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check isolated test application identity
+        run: python3 -m unittest discover -s tests -p 'test_sidecar_identity.py' -v
+
+  queue-runtime-launch-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate queue runtime launch repairs without sending
+        run: python3 -m unittest discover -s tests -p 'test_queue_runtime_launch.py' -v
+
+
   build:
+    # Run read-only verification for pull requests, including drafts and stacked PRs.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -77,6 +99,12 @@ jobs:
       - name: Install message preflight and safe-dispatch policy
         run: python3 scripts/add-message-queue-policy.py
 
+      - name: Repair queue startup feedback and Android notification permission handling
+        run: python3 scripts/repair-queue-runtime-launch.py
+
+      - name: Install queue duplicate-destination guard
+        run: python3 scripts/add-queue-duplicate-guard.py
+
       - name: Install dependency-free plugin core
         run: python3 scripts/add-plugin-system.py
 
@@ -112,6 +140,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Test duplicate destination matching without Rubika connection
+        run: |
+          mkdir -p "$RUNNER_TEMP/duplicate-guard-tests"
+          javac -d "$RUNNER_TEMP/duplicate-guard-tests" \
+            overrides/queue-safety/QueueDuplicateGuard.java \
+            tests/QueueDuplicateGuardTests.java
+          java -cp "$RUNNER_TEMP/duplicate-guard-tests" ir.sinicable.rubikaqueue.QueueDuplicateGuardTests
+
       - name: Test queue-start discovery policy
         run: |
           mkdir -p "$RUNNER_TEMP/queue-discovery-tests"
@@ -123,6 +159,9 @@ jobs:
       - name: Test queue-start discovery source integration
         run: python3 -m unittest discover -s tests -p 'test_queue_start_discovery_installer.py' -v
 
+      - name: Test queue features after destination-gate removal
+        run: python3 -m unittest discover -s tests -p 'test_queue_feature_cleanup.py' -v
+
       - name: Test message preflight and safe-dispatch policy
         run: |
           set -euo pipefail
@@ -132,6 +171,15 @@ jobs:
             tests/MessageQueuePolicyTests.java
           java -cp "$RUNNER_TEMP/message-policy-tests" ir.sinicable.rubikaqueue.MessageQueuePolicyTests
           python3 -m unittest discover -s tests -p 'test_message_policy_installer.py' -v
+
+      - name: Test queue startup diagnostics (no messages)
+        run: python3 -m unittest discover -s tests -p 'test_queue_runtime_launch.py' -v
+
+      - name: Test side-by-side installation identity
+        run: python3 -m unittest discover -s tests -p 'test_sidecar_identity.py' -v
+
+      - name: Test duplicate destination overlay (offline only)
+        run: python3 -m unittest discover -s tests -p 'test_queue_duplicate_guard.py' -v
 
       - name: Test optional-provider fallback, plugin lifecycle and workflows
         run: |
@@ -193,6 +241,9 @@ jobs:
       - name: Test trusted-device signer provisioning safety
         run: python3 -m unittest discover -s tests -p 'test_stable_signing_provision.py' -v
 
+      - name: Test CI ephemeral signing isolation
+        run: python3 -m unittest discover -s tests -p 'test_stable_release_smoke.py' -v
+
       - name: Install Android platform from runner SDK
         run: |
           set -euo pipefail
@@ -221,6 +272,10 @@ jobs:
           set -euo pipefail
           apk='app/build/outputs/apk/debug/app-debug.apk'
           test -s "$apk"
+          python3 scripts/verify_sidecar_identity.py \
+            --apk "$apk" \
+            --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+            --report sidecar-identity-report.json
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
           python3 scripts/apk_update_policy.py \
@@ -239,15 +294,63 @@ jobs:
             echo "::warning::Built APK cannot update the owner's installed v1.3.2 (code 15). Do not uninstall or clear app data."
             cp "$apk" Rubika-Queu-v1.4.0-NOT-UPDATABLE.apk
           fi
+          # Rename only after the expected non-updatable identity was verified.
+          test "$classification" = "NOT_UPDATABLE"
+          test -s Rubika-Queu-v1.4.0-NOT-UPDATABLE.apk
+          mv Rubika-Queu-v1.4.0-NOT-UPDATABLE.apk Rubika-Queu-v1.4.0-SIDECAR-NEW-INSTALL-TEST.apk
+
+      # Smoke-test the actual RELEASE signing path using a disposable CI key.
+      # No permanent GitHub secret is exposed and no smoke-test APK is uploaded.
+      # The stable manual dispatch skips this and uses the owner's key later.
+      - name: Verify throwaway key can sign a release APK
+        if: github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable'
+        env:
+          RUBIKA_STABLE_KEYSTORE_PASSWORD: ci-throwaway-only-not-a-secret
+          RUBIKA_STABLE_KEY_PASSWORD: ci-throwaway-only-not-a-secret
+          RUBIKA_STABLE_KEY_ALIAS: ci-disposable
+          RUBIKA_STABLE_KEYSTORE_PATH: signing/ci-test-release.p12
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p signing
+          trap 'rm -f signing/ci-test-release.p12 app/build/outputs/apk/release/app-release.apk' EXIT
+          keytool -genkeypair \
+            -alias "$RUBIKA_STABLE_KEY_ALIAS" \
+            -keyalg RSA -keysize 3072 -sigalg SHA256withRSA \
+            -validity 1 -storetype PKCS12 \
+            -keystore "$RUBIKA_STABLE_KEYSTORE_PATH" \
+            -dname "CN=Disposable CI Signing Key, OU=Tests, O=Rubika Queu, C=IR" \
+            -storepass:env RUBIKA_STABLE_KEYSTORE_PASSWORD \
+            -keypass:env RUBIKA_STABLE_KEY_PASSWORD \
+            -noprompt
+          pin="$(keytool -list -v -storetype PKCS12 \
+            -keystore "$RUBIKA_STABLE_KEYSTORE_PATH" \
+            -alias "$RUBIKA_STABLE_KEY_ALIAS" \
+            -storepass:env RUBIKA_STABLE_KEYSTORE_PASSWORD |
+            awk '/^[[:space:]]*SHA256:/ { print $2; exit }')"
+          test -n "$pin"
+          ./gradlew --no-daemon --max-workers=4 lintRelease assembleRelease
+          apk='app/build/outputs/apk/release/app-release.apk'
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
+          python3 scripts/verify_stable_release.py \
+            --apk "$apk" \
+            --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+            --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            --expected-certificate "$pin" \
+            --report "$RUNNER_TEMP/ci-release-smoke-report.json"
+          echo "Disposable signing smoke test passed; release APK and key will be deleted."
 
       - name: Upload verified test APK
         if: github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable'
         uses: actions/upload-artifact@v4
         with:
-          name: Rubika-Queu-v1.4.0-test-apk
+          name: Rubika-Queu-v1.4.0-sidecar-test-apk
           path: |
             Rubika-Queu-v1.4.0-*.apk
             apk-update-report.json
+            sidecar-identity-report.json
           if-no-files-found: error
 
       # Separate stable signer track. Never available to pull-request/push CI.
