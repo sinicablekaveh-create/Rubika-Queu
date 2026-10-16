@@ -10,11 +10,18 @@ android {
         applicationId 'ir.sinicable.rubikaqueue'
         minSdk 26
         targetSdk 34
-        versionCode 16
-        versionName '1.3.2-messaging-safety'
+        versionCode 18
+        versionName '1.4.0-new-signing-track'
     }
 
     signingConfigs {
+        stableRelease {
+            storeFile rootProject.file('signing/stable-release.p12')
+            storeType 'pkcs12'
+            storePassword System.getenv('RUBIKA_STABLE_KEYSTORE_PASSWORD') ?: ''
+            keyAlias System.getenv('RUBIKA_STABLE_KEY_ALIAS') ?: ''
+            keyPassword System.getenv('RUBIKA_STABLE_KEY_PASSWORD') ?: ''
+        }
         testKey {
             storeFile rootProject.file('signing/test-signing.p12')
             storeType 'pkcs12'
@@ -32,6 +39,10 @@ android {
             minifyEnabled false
         }
         release {
+            // Only explicit, owner-provisioned, stable-release signing; never use debug keys.
+            if (rootProject.file('signing/stable-release.p12').exists()) {
+                signingConfig signingConfigs.stableRelease
+            }
             minifyEnabled false
         }
     }
