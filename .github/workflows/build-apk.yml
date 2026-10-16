@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   sidecar-identity-review:
-    if: github.event_name == 'pull_request' && (github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016')
+    if: github.event_name == 'pull_request' && (github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016' || github.head_ref == 'feat/sidecar-queue-portable-backup-20261016')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
 
   build:
     # Test the separate-install diagnostic APK even while the PR is a draft.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016'
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016' || github.head_ref == 'feat/sidecar-queue-portable-backup-20261016'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -384,7 +384,7 @@ jobs:
           echo "CI smoke test passed; disposable sidecar signing key and release APK deleted."
 
       - name: Upload verified test APK
-        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && inputs.artifact_mode != 'sidecar_stable' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016')
+        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && inputs.artifact_mode != 'sidecar_stable' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016' || github.head_ref == 'feat/sidecar-queue-portable-backup-20261016')
         uses: actions/upload-artifact@v4
         with:
           name: Rubika-Queu-v1.4.0-sidecar-test-apk
