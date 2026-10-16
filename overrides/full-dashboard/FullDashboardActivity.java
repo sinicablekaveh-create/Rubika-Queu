@@ -26,11 +26,11 @@ public final class FullDashboardActivity extends Activity {
   GradientDrawable d=new GradientDrawable(); d.setColor(color);d.setCornerRadius(dp(16));return d;
  }
  private LinearLayout column(){
-  LinearLayout l=new LinearLayout(this);l.setOrientation(1);l.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);return l;
+  LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);l.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);return l;
  }
  private TextView text(String s,int size,int color,boolean bold){
   TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);
-  t.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);t.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
+  t.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);t.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
   if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;
  }
  private LinearLayout box(String heading,String explanation){
@@ -112,7 +112,7 @@ public final class FullDashboardActivity extends Activity {
    LinearLayout p=box("حریم خصوصی و نصب مستقل","شناسه این نسخه: "+getPackageName()+"\nداده و نشست نسخه‌های قبلی به این نصب منتقل نمی‌شود.");
    action(p,"اتصال و مدیریت حساب",MainActivity.class);action(p,"دستیار اختیاری",AiAssistantActivity.class);
   }
-  LinearLayout nav=new LinearLayout(this);nav.setOrientation(0);nav.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+  LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);nav.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
   nav.setBackgroundColor(Color.WHITE);
   for(int i=0;i<TABS.length;i++){
    final int chosen=i;TextView t=text(TABS[i],11,i==tab?TEAL:MUTED,i==tab);
