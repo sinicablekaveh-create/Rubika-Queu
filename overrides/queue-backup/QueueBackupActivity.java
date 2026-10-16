@@ -175,7 +175,7 @@ public final class QueueBackupActivity extends Activity {
    finally{working=false;}
   });
  }
- private void show(String text){runOnUiThread(()->status.setText(text));}
+ private void show(String text){runOnUiThread(()->{secret.setText("");status.setText(text);});}
  private void clearPassword(){if(password!=null){Arrays.fill(password,'\0');password=null;}}
  @Override protected void onDestroy(){
   clearPassword();secret.setText("");pending=null;io.shutdownNow();super.onDestroy();
