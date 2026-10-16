@@ -2,6 +2,15 @@ name: Build Rubika Queu Test APK
 
 on:
   workflow_dispatch:
+    inputs:
+      artifact_mode:
+        description: "Test APK or manually requested new-signer stable APK"
+        required: true
+        default: test
+        type: choice
+        options:
+          - test
+          - stable
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -171,6 +180,9 @@ jobs:
       - name: Test APK update policy
         run: python3 -m unittest discover -s tests -p 'test_apk_update_policy.py' -v
 
+      - name: Test stable signing release guardrails
+        run: python3 -m unittest discover -s tests -p 'test_stable_release.py' -v
+
       - name: Install Android platform from runner SDK
         run: |
           set -euo pipefail
@@ -186,31 +198,7 @@ jobs:
       - name: Test discovery SQLite and HTTPS client
         run: gradle --no-daemon --max-workers=4 -p tests/discovery-runtime test
 
-      - name: Restore owner signing key if configured
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        env:
-          INSTALLED_P12_BASE64: ${{ secrets.RUBIKA_INSTALLED_KEYSTORE_BASE64 }}
-          LEGACY_TEST_P12_BASE64: ${{ secrets.RUBIKA_TEST_KEYSTORE_BASE64 }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p signing
-          umask 077
-          if [ -n "$INSTALLED_P12_BASE64" ]; then
-            printf '%s' "$INSTALLED_P12_BASE64" | base64 --decode > signing/test-signing.p12
-            echo "installed" > signing/selected-key-origin
-          elif [ -n "$LEGACY_TEST_P12_BASE64" ]; then
-            printf '%s' "$LEGACY_TEST_P12_BASE64" | base64 --decode > signing/test-signing.p12
-            echo "legacy-test" > signing/selected-key-origin
-          else
-            echo "::warning::No owner signing key is configured. Generated debug APK cannot update the installed code 15 app."
-          fi
-
-      - name: Build signed APK
-        env:
-          RUBIKA_TEST_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && (secrets.RUBIKA_INSTALLED_KEYSTORE_PASSWORD || secrets.RUBIKA_TEST_KEYSTORE_PASSWORD) || '' }}
-          RUBIKA_TEST_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && (secrets.RUBIKA_INSTALLED_KEY_PASSWORD || secrets.RUBIKA_TEST_KEY_PASSWORD) || '' }}
-          RUBIKA_TEST_KEY_ALIAS: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && (secrets.RUBIKA_INSTALLED_KEY_ALIAS || secrets.RUBIKA_TEST_KEY_ALIAS) || 'test' }}
+      - name: Build independent CI test APK
         run: |
           gradle wrapper --gradle-version 8.9
           if ! ./gradlew --no-daemon --max-workers=4 lintDebug assembleDebug; then
@@ -225,16 +213,6 @@ jobs:
           test -s "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
-          # Verify the selected key against the exact known certificate, never an arbitrary signer.
-          # Installed v1.3.2/code15 and legacy v1.1 use different keys.
-          if [ -s signing/test-signing.p12 ]; then
-            if [ "$(cat signing/selected-key-origin)" = 'installed' ]; then
-              expected='fdb827fa66b05309a2e7a759bc03d9f22355b54cd74c63e74a5d889823087026'
-            else
-              expected='8747838d913e2f0f58dc66e432eb3753bc826e6a3f7e23eaf6bb799cd63af28b'
-            fi
-            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" | grep -qi "$expected"
-          fi
           python3 scripts/apk_update_policy.py \
             --apk "$apk" \
             --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
@@ -246,17 +224,81 @@ jobs:
             --summary "$GITHUB_STEP_SUMMARY"
           classification="$(python3 -c 'import json; print(json.load(open("apk-update-report.json"))["classification"])')"
           if [ "$classification" = 'UPDATE_CANDIDATE_UNTESTED' ]; then
-            cp "$apk" Rubika-Queu-v1.3.2-UPDATE-CANDIDATE-UNTESTED.apk
+            cp "$apk" Rubika-Queu-v1.4.0-TEST-UPDATE-CANDIDATE-UNTESTED.apk
           else
             echo "::warning::Built APK cannot update the owner's installed v1.3.2 (code 15). Do not uninstall or clear app data."
-            cp "$apk" Rubika-Queu-v1.3.2-NOT-UPDATABLE.apk
+            cp "$apk" Rubika-Queu-v1.4.0-NOT-UPDATABLE.apk
           fi
 
-      - name: Upload verified APK
+      - name: Upload verified test APK
+        if: github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable'
         uses: actions/upload-artifact@v4
         with:
-          name: Rubika-Queu-v1.3.2-apk
+          name: Rubika-Queu-v1.4.0-test-apk
           path: |
-            Rubika-Queu-v1.3.2-*.apk
+            Rubika-Queu-v1.4.0-*.apk
             apk-update-report.json
+          if-no-files-found: error
+
+      # Separate stable signer track. Never available to pull-request/push CI.
+      # No stable key -> no release APK. Credentials and keystore remain outside git.
+      - name: Restore explicitly provisioned stable release key
+        if: github.event_name == 'workflow_dispatch' && inputs.artifact_mode == 'stable' && github.ref == 'refs/heads/main'
+        env:
+          KEY_BASE64: ${{ secrets.RUBIKA_STABLE_KEYSTORE_BASE64 }}
+          KEY_PASSWORD: ${{ secrets.RUBIKA_STABLE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RUBIKA_STABLE_KEY_ALIAS }}
+          PRIVATE_PASSWORD: ${{ secrets.RUBIKA_STABLE_KEY_PASSWORD }}
+          EXPECTED_CERT: ${{ vars.RUBIKA_STABLE_SIGNER_SHA256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for secret in KEY_BASE64 KEY_PASSWORD KEY_ALIAS PRIVATE_PASSWORD EXPECTED_CERT; do
+            if [ -z "${!secret}" ]; then
+              echo "::error::Missing release signing input: $secret. Stable APK was NOT published."
+              exit 1
+            fi
+          done
+          umask 077
+          mkdir -p signing
+          printf '%s' "$KEY_BASE64" | base64 --decode > signing/stable-release.p12
+          test -s signing/stable-release.p12
+
+      - name: Assemble pinned-signer production APK
+        if: github.event_name == 'workflow_dispatch' && inputs.artifact_mode == 'stable' && github.ref == 'refs/heads/main'
+        env:
+          RUBIKA_STABLE_KEYSTORE_PASSWORD: ${{ secrets.RUBIKA_STABLE_KEYSTORE_PASSWORD }}
+          RUBIKA_STABLE_KEY_ALIAS: ${{ secrets.RUBIKA_STABLE_KEY_ALIAS }}
+          RUBIKA_STABLE_KEY_PASSWORD: ${{ secrets.RUBIKA_STABLE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --max-workers=4 lintRelease assembleRelease
+          test -s app/build/outputs/apk/release/app-release.apk
+
+      - name: Verify stable APK signature, identity and zip alignment
+        if: github.event_name == 'workflow_dispatch' && inputs.artifact_mode == 'stable' && github.ref == 'refs/heads/main'
+        env:
+          EXPECTED_CERT: ${{ vars.RUBIKA_STABLE_SIGNER_SHA256 }}
+        run: |
+          set -euo pipefail
+          apk='app/build/outputs/apk/release/app-release.apk'
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
+          python3 scripts/verify_stable_release.py \
+            --apk "$apk" \
+            --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+            --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            --expected-certificate "$EXPECTED_CERT" \
+            --report stable-release-report.json \
+            --summary "$GITHUB_STEP_SUMMARY"
+          cp "$apk" Rubika-Queu-v1.4.0-NEW-INSTALL-STABLE.apk
+
+      - name: Upload pinned new-signer APK (manual dispatch only)
+        if: github.event_name == 'workflow_dispatch' && inputs.artifact_mode == 'stable' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rubika-Queu-v1.4.0-new-signer-stable
+          path: |
+            Rubika-Queu-v1.4.0-NEW-INSTALL-STABLE.apk
+            stable-release-report.json
           if-no-files-found: error
