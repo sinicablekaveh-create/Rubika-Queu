@@ -55,6 +55,9 @@ jobs:
       - name: Install queue-start discovery integration
         run: python3 scripts/add-queue-start-discovery.py
 
+      - name: Install message preflight and safe-dispatch policy
+        run: python3 scripts/add-message-queue-policy.py
+
       - name: Install dependency-free plugin core
         run: python3 scripts/add-plugin-system.py
 
@@ -100,6 +103,16 @@ jobs:
 
       - name: Test queue-start discovery source integration
         run: python3 -m unittest discover -s tests -p 'test_queue_start_discovery_installer.py' -v
+
+      - name: Test message preflight and safe-dispatch policy
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/message-policy-tests"
+          javac -d "$RUNNER_TEMP/message-policy-tests" \
+            overrides/message-policy/MessageQueuePolicy.java \
+            tests/MessageQueuePolicyTests.java
+          java -cp "$RUNNER_TEMP/message-policy-tests" ir.sinicable.rubikaqueue.MessageQueuePolicyTests
+          python3 -m unittest discover -s tests -p 'test_message_policy_installer.py' -v
 
       - name: Test optional-provider fallback, plugin lifecycle and workflows
         run: |
