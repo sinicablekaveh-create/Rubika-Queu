@@ -16,6 +16,11 @@ class PullRequestCiPolicyTests(unittest.TestCase):
         self.assertIsNotNone(event, "pull_request event missing")
         self.assertNotRegex(event.group(1), r"(?m)^\s*branches\s*:")
 
+    def test_pr_base_edits_retrigger_verification(self):
+        event = re.search(r"(?m)^  pull_request:\s*\n((?:^    [^\n]*\n|^\s*\n)*)", self.text)
+        self.assertIsNotNone(event, "pull_request event missing")
+        self.assertRegex(event.group(1), r"(?m)^    types\s*:\s*\[[^\]]*\bedited\b[^\]]*\]")
+
     def test_draft_prs_are_not_skipped(self):
         job = re.search(r"(?m)^  build:\s*\n((?:^    [^\n]*\n|^\s*\n)*)", self.text)
         self.assertIsNotNone(job, "build job missing")
