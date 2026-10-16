@@ -46,7 +46,7 @@ public final class DevelopmentReportActivity extends Activity {
         report = new EditText(this);
         report.setHint("پیش‌نمایش قابل‌ویرایش گزارش برای ChatGPT");
         report.setMinLines(8);
-        report.setTextIsSelectable(true);
+        // An EditText remains editable so the owner can review and remove any details.
         root.addView(report, new LinearLayout.LayoutParams(-1, -2));
 
         button(root, "کپی گزارش", v -> {
