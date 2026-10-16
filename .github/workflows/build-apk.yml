@@ -12,8 +12,7 @@ on:
           - test
           - stable
   pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
   push:
     branches: [main]
 
@@ -43,8 +42,7 @@ jobs:
 
 
   build:
-    # Test the separate-install diagnostic APK even while the PR is a draft.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016'
+    # Run read-only verification for pull requests, including drafts and stacked PRs.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -60,6 +58,9 @@ jobs:
 
       - name: Verify consolidated core CI coverage
         run: python3 -m unittest discover -s tests -p 'test_workflow_ci_consolidation.py' -v
+
+      - name: Verify draft and stacked pull request CI coverage
+        run: python3 -m unittest discover -s tests -p 'test_ci_pr_policy.py' -v
 
       - name: Extract audited application source bundle
         run: |
@@ -342,7 +343,7 @@ jobs:
           echo "Disposable signing smoke test passed; release APK and key will be deleted."
 
       - name: Upload verified test APK
-        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016')
+        if: github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable'
         uses: actions/upload-artifact@v4
         with:
           name: Rubika-Queu-v1.4.0-sidecar-test-apk
