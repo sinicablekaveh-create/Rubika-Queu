@@ -6,6 +6,12 @@ The main queue screen now offers **گزارش توسعه برای ChatGPT**: an 
 
 **Upgrade caveat:** This source version raises code 14 to code 15, retaining package `ir.sinicable.rubikaqueue`. The owner's installed v1.3.1/code14 certificate is `fdb827fa66b05309a2e7a759bc03d9f22355b54cd74c63e74a5d889823087026`, which **does not match** the test certificate currently documented in CI. The build workflow reports the candidate's certificate and will mark it `NOT_UPDATABLE` unless the original installed certificate's signing key is supplied through a secure GitHub Actions secret. Do not uninstall the installed app or assume a new debug APK preserves data. CI does not recover the signing private key from the installed APK.
 
+## Automatic discovery when starting the queue
+
+The existing group and public business-contact finder can now start automatically when the message queue starts. It uses the saved search terms and group/contact switches. The setting is enabled by default and can be turned off in **گروه‌ها و شماره تماس‌ها**. To avoid concurrent Rubika requests, the read-only discovery pass runs first; queue delivery resumes after discovery finishes. A non-rate-related discovery failure is recorded and the queue continues; a rate-limit or authentication error stops it. Stopping the queue during discovery stops the search and leaves any saved findings intact. Discovery never reads private member/contact lists and never sends messages.
+
+See [queue-start discovery](docs/QUEUE_START_AUTO_DISCOVERY.md) for manual test steps and behavior boundaries.
+
 # Rubika-Queu – Android Message Queue
 
 [![Build Android APK](https://github.com/sinicablekaveh-create/Rubika-Queu/actions/workflows/build-apk.yml/badge.svg)](https://github.com/sinicablekaveh-create/Rubika-Queu/actions/workflows/build-apk.yml)
