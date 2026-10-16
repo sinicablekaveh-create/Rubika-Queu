@@ -16,7 +16,7 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
   push:
-    branches: [main]
+    branches: [main, feat/rubika-full-dashboard-20261017]
 
 permissions:
   contents: read
@@ -422,7 +422,7 @@ jobs:
           if-no-files-found: error
 
       - name: Build native full RTL third-package APK
-        if: github.event_name == 'pull_request' && github.head_ref == 'feat/rubika-full-dashboard-20261017'
+        if: (github.event_name == 'pull_request' && github.head_ref == 'feat/rubika-full-dashboard-20261017') || (github.event_name == 'push' && github.ref == 'refs/heads/feat/rubika-full-dashboard-20261017')
         shell: bash
         run: |
           set -euo pipefail
@@ -437,7 +437,7 @@ jobs:
           cp "$apk" Rubika-Queu-v1.5.0-FULL-NEW-INSTALL-TEST.apk
 
       - name: Upload verified full sidecar APK
-        if: github.event_name == 'pull_request' && github.head_ref == 'feat/rubika-full-dashboard-20261017'
+        if: (github.event_name == 'pull_request' && github.head_ref == 'feat/rubika-full-dashboard-20261017') || (github.event_name == 'push' && github.ref == 'refs/heads/feat/rubika-full-dashboard-20261017')
         uses: actions/upload-artifact@v4
         with:
           name: Rubika-Queu-v1.5.0-full-native-rtl-apk
