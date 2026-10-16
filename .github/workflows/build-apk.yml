@@ -183,6 +183,9 @@ jobs:
       - name: Test stable signing release guardrails
         run: python3 -m unittest discover -s tests -p 'test_stable_release.py' -v
 
+      - name: Test trusted-device signer provisioning safety
+        run: python3 -m unittest discover -s tests -p 'test_stable_signing_provision.py' -v
+
       - name: Install Android platform from runner SDK
         run: |
           set -euo pipefail
