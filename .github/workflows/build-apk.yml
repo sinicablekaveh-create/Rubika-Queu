@@ -98,6 +98,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Test native offline search preview policy
+        run: |
+          mkdir -p "$RUNNER_TEMP/native-preview-tests"
+          javac -encoding UTF-8 -d "$RUNNER_TEMP/native-preview-tests" \
+            overrides/native-ui/NativeDashboardPreviewPolicy.java \
+            tests/NativeDashboardPreviewPolicyTests.java
+          java -cp "$RUNNER_TEMP/native-preview-tests" ir.sinicable.rubikaqueue.NativeDashboardPreviewPolicyTests
+
       - name: Test queue-start discovery policy
         run: |
           mkdir -p "$RUNNER_TEMP/queue-discovery-tests"

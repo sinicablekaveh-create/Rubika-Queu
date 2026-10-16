@@ -38,6 +38,8 @@ class NativeUiInstallerTests(unittest.TestCase):
         override = self.root / 'overrides/native-ui/NativeDashboardActivity.java'
         override.parent.mkdir(parents=True)
         shutil.copyfile(SRC, override)
+        policy = self.root / 'overrides/native-ui/NativeDashboardPreviewPolicy.java'
+        shutil.copyfile(ROOT / 'overrides/native-ui/NativeDashboardPreviewPolicy.java', policy)
 
     def run_installer(self, expect_success=True):
         result = subprocess.run([sys.executable, str(SCRIPT)], cwd=self.root, text=True, capture_output=True)
@@ -56,6 +58,12 @@ class NativeUiInstallerTests(unittest.TestCase):
         self.assertEqual(len(launch), 1)
         self.assertEqual(launch[0][0], '.NativeDashboardActivity')
         self.assertEqual(app.get(ANDROID + 'allowBackup'), 'false')
+
+    def test_local_preview_policy_is_installed_with_activity(self):
+        self.run_installer()
+        policy = self.root / 'app/src/main/java/ir/sinicable/rubikaqueue/NativeDashboardPreviewPolicy.java'
+        self.assertTrue(policy.is_file(), 'Pure-Java preview policy should be copied by installer')
+        self.assertEqual(policy.read_bytes(), (ROOT / 'overrides/native-ui/NativeDashboardPreviewPolicy.java').read_bytes())
 
     def test_installer_preserves_existing_engine_and_legacy_entry(self):
         self.run_installer()

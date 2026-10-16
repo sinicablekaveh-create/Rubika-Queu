@@ -14,12 +14,14 @@ MANIFEST = Path('app/src/main/AndroidManifest.xml')
 DEST = Path('app/src/main/java/ir/sinicable/rubikaqueue')
 SRC = Path('overrides/native-ui/NativeDashboardActivity.java')
 TARGET = DEST / 'NativeDashboardActivity.java'
+PREVIEW_SRC = Path('overrides/native-ui/NativeDashboardPreviewPolicy.java')
+PREVIEW_TARGET = DEST / 'NativeDashboardPreviewPolicy.java'
 
 
 def install():
     if not (DEST / 'MainActivity.java').is_file():
         raise SystemExit('MainActivity missing: run this after source extraction')
-    if not SRC.is_file() or not MANIFEST.is_file():
+    if not SRC.is_file() or not PREVIEW_SRC.is_file() or not MANIFEST.is_file():
         raise SystemExit('Native dashboard source or Android manifest missing')
 
     tree = ET.parse(MANIFEST)
@@ -59,9 +61,12 @@ def install():
     main.set(A('exported'), 'false')
     if TARGET.exists() and TARGET.read_bytes() != SRC.read_bytes():
         raise SystemExit('Unexpected existing dashboard; refusing overwrite')
+    if PREVIEW_TARGET.exists() and PREVIEW_TARGET.read_bytes() != PREVIEW_SRC.read_bytes():
+        raise SystemExit('Unexpected existing preview policy; refusing overwrite')
     # Write only after all validations have passed.
     tree.write(MANIFEST, encoding='unicode', xml_declaration=True)
     shutil.copyfile(SRC, TARGET)
+    shutil.copyfile(PREVIEW_SRC, PREVIEW_TARGET)
     print('Installed isolated RTL dashboard launcher and preserved legacy MainActivity')
 
 

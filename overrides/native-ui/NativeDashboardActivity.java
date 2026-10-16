@@ -37,6 +37,9 @@ public final class NativeDashboardActivity extends Activity {
     private String terms = "برق صنعتی، سینی کابل، لاله‌زار";
     private String interval = "60";
     private boolean sampleReviewed = false;
+    // Selectors below affect offline preview only, never the actual search engine.
+    private boolean demoGroups = true;
+    private boolean demoBusinesses = true;
     private EditText draftField;
     private EditText termsField;
     private EditText intervalField;
@@ -52,6 +55,8 @@ public final class NativeDashboardActivity extends Activity {
             terms = savedInstanceState.getString("terms", terms);
             interval = savedInstanceState.getString("interval", interval);
             sampleReviewed = savedInstanceState.getBoolean("reviewed", false);
+            demoGroups = savedInstanceState.getBoolean("demo_groups", true);
+            demoBusinesses = savedInstanceState.getBoolean("demo_businesses", true);
         }
         showTab(activeTab);
     }
@@ -63,6 +68,8 @@ public final class NativeDashboardActivity extends Activity {
         state.putString("terms", terms);
         state.putString("interval", interval);
         state.putBoolean("reviewed", sampleReviewed);
+        state.putBoolean("demo_groups", demoGroups);
+        state.putBoolean("demo_businesses", demoBusinesses);
         super.onSaveInstanceState(state);
     }
 
@@ -316,17 +323,21 @@ public final class NativeDashboardActivity extends Activity {
         LinearLayout form = card();
         headline(form, "موضوعات جست‌وجو");
         termsField = field(form, "موضوعات مرتبط", terms, true);
-        checkbox(form, "گروه‌های عمومی", true, enabled -> {});
-        checkbox(form, "اطلاعات عمومی کسب‌وکارها", true, enabled -> {});
-        checkbox(form, "جست‌وجوی خودکار قبل از اجرای صف", autoDiscovery(), this::setAutoDiscovery);
-        action(form, "پیش‌نمایش نتیجه جست‌وجو", true,
-            () -> info("گروه نمونه: برق صنعتی؛ گروه نمونه: تجهیزات لاله‌زار. نتایج ساختگی‌اند و هیچ درخواست شبکه‌ای انجام نشد."));
-        action(form, "کشف هوشمند واقعی (با کنترل کاربر)", false, () -> open(AiDiscoveryActivity.class));
+        paragraph(form, "موضوعات و نوع منابع فقط برای پیش‌نمایش محلی هستند و در جست‌وجوی واقعی ذخیره نمی‌شوند.");
+        checkbox(form, "گروه‌های عمومی (فقط پیش‌نمایش)", demoGroups, enabled -> demoGroups = enabled);
+        checkbox(form, "اطلاعات عمومی کسب‌وکارها (فقط پیش‌نمایش)", demoBusinesses, enabled -> demoBusinesses = enabled);
+        action(form, "پیش‌نمایش نتیجه جست‌وجو (آفلاین)", true, () -> {
+            rememberEdits();
+            info(NativeDashboardPreviewPolicy.describe(terms, demoGroups, demoBusinesses));
+        });
+        paragraph(form, "تنظیم زیر واقعی است و بر اجرای جست‌وجوی پیش از صف در بخش مدیریت اصلی اثر می‌گذارد:");
+        checkbox(form, "[تنظیم واقعی] جست‌وجوی خودکار قبل از اجرای صف", autoDiscovery(), this::setAutoDiscovery);
+        action(form, "باز کردن جست‌وجوی واقعی برای تنظیم و اجرا", false, () -> open(MainActivity.class));
+        action(form, "کشف هوشمند گروه‌ها و تاریخچه", false, () -> open(AiDiscoveryActivity.class));
         LinearLayout results = card();
         headline(results, "نتایج پیشنهادی — نمونه نمایشی");
-        paragraph(results, "گروه نمونه: برق صنعتی  ·  عمومی  ·  ۹۲٪");
-        paragraph(results, "گروه نمونه: تجهیزات لاله‌زار  ·  عمومی  ·  ۸۷٪");
-        paragraph(results, "کسب‌وکار نمونه: سینی کابل  ·  اطلاعات ساختگی");
+        paragraph(results, "نتیجه بر اساس نوع منبع و عبارت واردشده فقط پس از لمس «پیش‌نمایش» ساخته می‌شود.");
+        paragraph(results, "هیچ نتیجه واقعی یا امتیاز ارتباط از سرویس روبیکا دریافت نشده است.");
         paragraph(results, "در برنامه اصلی، ابتدا جست‌وجوی فقط‌خواندنی تکمیل می‌شود، سپس صف ادامه می‌یابد.");
     }
 
@@ -354,7 +365,7 @@ public final class NativeDashboardActivity extends Activity {
         body.addView(title("تنظیمات و حریم خصوصی"));
         LinearLayout preferences = card();
         headline(preferences, "گزینه‌های صف و کشف");
-        checkbox(preferences, "جست‌وجوی خودکار با شروع صف", autoDiscovery(), this::setAutoDiscovery);
+        checkbox(preferences, "[تنظیم واقعی] جست‌وجوی خودکار با شروع صف", autoDiscovery(), this::setAutoDiscovery);
         paragraph(preferences, "این گزینه به همان تنظیم واقعی جست‌وجوی پیش از صف متصل است.");
         LinearLayout about = card();
         headline(about, "نسخه و شناسه");
