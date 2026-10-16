@@ -15,8 +15,8 @@ android {
         applicationId 'ir.sinicable.rubikaqueue'
         minSdk 26
         targetSdk 34
-        versionCode 18
-        versionName '1.4.0-new-signing-track'
+        versionCode 19
+        versionName '1.5.0-full-dashboard'
     }
 
     signingConfigs {
@@ -50,6 +50,13 @@ android {
             if (stableKeyFile.exists()) {
                 signingConfig signingConfigs.stableRelease
             }
+            minifyEnabled false
+        }
+        sidecarFull {
+            initWith debug
+            applicationIdSuffix '.sidecarfull'
+            versionNameSuffix '-full-test'
+            matchingFallbacks = ['debug']
             minifyEnabled false
         }
         sidecarStable {

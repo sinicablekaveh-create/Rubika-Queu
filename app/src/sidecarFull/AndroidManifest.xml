@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
+  <application android:label="صف روبیکا • نسخه کامل آزمایشی" tools:replace="android:label">
+    <activity android:name=".MainActivity" android:exported="false"
+              android:windowSoftInputMode="adjustResize"
+              android:configChanges="orientation|screenSize|keyboardHidden"
+              tools:node="replace"/>
+    <activity android:name=".FullDashboardActivity" android:exported="true" tools:node="replace">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>

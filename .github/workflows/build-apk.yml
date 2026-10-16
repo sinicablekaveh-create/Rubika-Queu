@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   sidecar-identity-review:
-    if: github.event_name == 'pull_request' && (github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016' || github.head_ref == 'feat/sidecar-queue-portable-backup-20261016')
+    if: github.event_name == 'pull_request' && (github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016' || github.head_ref == 'feat/sidecar-queue-portable-backup-20261016' || github.head_ref == 'feat/rubika-full-dashboard-20261017')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
 
   build:
     # Test the separate-install diagnostic APK even while the PR is a draft.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016' || github.head_ref == 'feat/sidecar-queue-portable-backup-20261016'
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016' || github.head_ref == 'feat/sidecar-queue-portable-backup-20261016' || github.head_ref == 'feat/rubika-full-dashboard-20261017'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -110,6 +110,13 @@ jobs:
 
       - name: Install dependency-free plugin core
         run: python3 scripts/add-plugin-system.py
+
+      - name: Install real-data full RTL dashboard
+        run: python3 scripts/add-full-dashboard.py
+
+      - name: Test full dashboard installer and separate identity
+        run: python3 -m unittest discover -s tests -p 'test_full_*.py' -v
+
 
       - name: Test smart discovery ranking
         run: |
@@ -404,7 +411,7 @@ jobs:
           echo "CI smoke test passed; disposable sidecar signing key and release APK deleted."
 
       - name: Upload verified test APK
-        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && inputs.artifact_mode != 'sidecar_stable' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016' || github.head_ref == 'feat/sidecar-queue-portable-backup-20261016')
+        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && inputs.artifact_mode != 'sidecar_stable' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.head_ref == 'feat/rubika-sidecar-20261016' || github.head_ref == 'fix/sidecar-queue-recovery-20261016' || github.head_ref == 'feat/sidecar-stable-signing-20261016' || github.head_ref == 'feat/sidecar-queue-portable-backup-20261016' || github.head_ref == 'feat/rubika-full-dashboard-20261017')
         uses: actions/upload-artifact@v4
         with:
           name: Rubika-Queu-v1.4.0-sidecar-test-apk
@@ -412,6 +419,31 @@ jobs:
             Rubika-Queu-v1.4.0-*.apk
             apk-update-report.json
             sidecar-identity-report.json
+          if-no-files-found: error
+
+      - name: Build native full RTL third-package APK
+        if: github.event_name == 'pull_request' && github.head_ref == 'feat/rubika-full-dashboard-20261017'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --max-workers=4 lintSidecarFull assembleSidecarFull
+          apk='app/build/outputs/apk/sidecarFull/app-sidecarFull.apk'
+          test -s "$apk"
+          python3 scripts/verify_full_sidecar_identity.py \
+            --apk "$apk" --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+            --report full-sidecar-identity-report.json
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
+          cp "$apk" Rubika-Queu-v1.5.0-FULL-NEW-INSTALL-TEST.apk
+
+      - name: Upload verified full sidecar APK
+        if: github.event_name == 'pull_request' && github.head_ref == 'feat/rubika-full-dashboard-20261017'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rubika-Queu-v1.5.0-full-native-rtl-apk
+          path: |
+            Rubika-Queu-v1.5.0-FULL-NEW-INSTALL-TEST.apk
+            full-sidecar-identity-report.json
           if-no-files-found: error
 
       # Separate stable signer track. Never available to pull-request/push CI.
