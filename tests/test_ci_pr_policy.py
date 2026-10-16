@@ -12,17 +12,17 @@ class PullRequestCiPolicyTests(unittest.TestCase):
         cls.text = WORKFLOW.read_text(encoding="utf-8")
 
     def test_pr_event_does_not_filter_stacked_branch_targets(self):
-        event = re.search(r"(?m)^  pull_request:\\s*\\n((?:^    [^\\n]*\\n|^\\s*\\n)*)", self.text)
+        event = re.search(r"(?m)^  pull_request:\s*\n((?:^    [^\n]*\n|^\s*\n)*)", self.text)
         self.assertIsNotNone(event, "pull_request event missing")
-        self.assertNotRegex(event.group(1), r"(?m)^\\s*branches\\s*:")
+        self.assertNotRegex(event.group(1), r"(?m)^\s*branches\s*:")
 
     def test_draft_prs_are_not_skipped(self):
-        job = re.search(r"(?m)^  build:\\s*\\n((?:^    [^\\n]*\\n|^\\s*\\n)*)", self.text)
+        job = re.search(r"(?m)^  build:\s*\n((?:^    [^\n]*\n|^\s*\n)*)", self.text)
         self.assertIsNotNone(job, "build job missing")
-        self.assertNotRegex(job.group(1), r"(?m)^\\s*if\\s*:.*\\bdraft\\b")
+        self.assertNotRegex(job.group(1), r"(?m)^\s*if\s*:.*\bdraft\b")
 
     def test_stable_release_remains_manual_and_main_only(self):
-        self.assertIn("permissions:\\n  contents: read".replace("\\n", "\n"), self.text)
+        self.assertIn("permissions:\n  contents: read", self.text)
         self.assertIn("github.event_name == 'workflow_dispatch' && inputs.artifact_mode == 'stable' && github.ref == 'refs/heads/main'", self.text)
         self.assertIn("RUBIKA_STABLE_SIGNER_SHA256", self.text)
         self.assertIn("scripts/verify_stable_release.py", self.text)
