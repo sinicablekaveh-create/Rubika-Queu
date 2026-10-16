@@ -88,3 +88,13 @@ confirmation, and AI never sends Rubika messages or updates code automatically.
 See [Online AI gateway](docs/ONLINE_AI_GATEWAY.md) for deployment and testing.
 For an owner-operated Windows HTTPS server, see
 [Personal gateway deployment](docs/PERSONAL_GATEWAY_DEPLOYMENT.md).
+
+## Message preflight and restart safety (versionCode 16)
+
+Before creating a queue, the app validates the message, selected recipient count,
+and the 30–3600 second interval. On resume, only pending rows are dispatched;
+confirmed, skipped, and ambiguous rows are not silently resent. A row left in an
+in-flight state after interruption must be reviewed in Rubika and marked seen or
+skipped by the user before the remaining queue continues. The documented Bot
+API remains a separate, manually confirmed single-message path. See
+[`docs/MESSAGE_SAFETY_POLICY.md`](docs/MESSAGE_SAFETY_POLICY.md).
