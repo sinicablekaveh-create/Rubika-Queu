@@ -43,7 +43,8 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_allowed_destinations_installer.py' -v
 
   build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # Temporary PR #41 validation: compile and lint the full Android application while draft.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.event.pull_request.number == 41
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -320,7 +321,7 @@ jobs:
           echo "Disposable signing smoke test passed; release APK and key will be deleted."
 
       - name: Upload verified test APK
-        if: github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable'
+        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
         uses: actions/upload-artifact@v4
         with:
           name: Rubika-Queu-v1.4.0-test-apk
