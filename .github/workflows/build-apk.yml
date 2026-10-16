@@ -44,6 +44,7 @@ jobs:
   build:
     # Run read-only verification for pull requests, including drafts and stacked PRs.
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -299,6 +300,13 @@ jobs:
           test -s Rubika-Queu-v1.4.0-NOT-UPDATABLE.apk
           mv Rubika-Queu-v1.4.0-NOT-UPDATABLE.apk Rubika-Queu-v1.4.0-SIDECAR-NEW-INSTALL-TEST.apk
 
+      - name: Record and self-check verified test APK SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum Rubika-Queu-v1.4.0-SIDECAR-NEW-INSTALL-TEST.apk > test-apk.sha256
+          sha256sum --check test-apk.sha256
+
       # Smoke-test the actual RELEASE signing path using a disposable CI key.
       # No permanent GitHub secret is exposed and no smoke-test APK is uploaded.
       # The stable manual dispatch skips this and uses the owner's key later.
@@ -351,7 +359,9 @@ jobs:
             Rubika-Queu-v1.4.0-*.apk
             apk-update-report.json
             sidecar-identity-report.json
+            test-apk.sha256
           if-no-files-found: error
+          retention-days: 7
 
       # Separate stable signer track. Never available to pull-request/push CI.
       # No stable key -> no release APK. Credentials and keystore remain outside git.
