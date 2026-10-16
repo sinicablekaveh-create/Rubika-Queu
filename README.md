@@ -1,3 +1,19 @@
+## New permanent signing track (1.4.0, versionCode 18)
+
+The project now supports a **separately signed new-installation track** via
+manual GitHub Actions dispatch (`artifact_mode=stable`). It is protected by
+a private PKCS#12 signing key and an independently pinned public SHA-256
+certificate fingerprint. This new track **cannot install over** the old
+code-15 app with its different signer, and the project does not attempt to
+recover the old signing key. Debug builds remain test-only; no new-signer APK
+is uploaded without the owner's GitHub Actions signing secrets and certificate
+variable. See [new permanent signing setup](docs/NEW_STABLE_SIGNING_TRACK.md).
+Before uninstalling an old app, preserve any data that matters to you; Android
+uninstallation can erase its local queues and history.
+
+> Older version/key-recovery notes below document historical releases and are
+> superseded for the 1.4.0 signing track.
+
 ## ChatGPT development report (v1.3.2, code 15)
 
 The main queue screen now offers **گزارش توسعه برای ChatGPT**: an explicit development-request form, locally generated public app metadata (package/version/Android SDK), an editable preview, copy, Android text-sharing chooser, and an opt-in ChatGPT website handoff. The app does not automatically read contacts, queued messages, private Rubika data, tokens, or credentials. No ChatGPT session or API integration is implied, and no outgoing Rubika message is sent by this flow.
