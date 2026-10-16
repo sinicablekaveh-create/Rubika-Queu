@@ -12,7 +12,6 @@ on:
           - test
           - stable
   pull_request:
-    branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
@@ -22,7 +21,6 @@ permissions:
 
 jobs:
   build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -38,6 +36,9 @@ jobs:
 
       - name: Verify consolidated core CI coverage
         run: python3 -m unittest discover -s tests -p 'test_workflow_ci_consolidation.py' -v
+
+      - name: Verify draft and stacked pull request CI coverage
+        run: python3 -m unittest discover -s tests -p 'test_ci_pr_policy.py' -v
 
       - name: Extract audited application source bundle
         run: |
