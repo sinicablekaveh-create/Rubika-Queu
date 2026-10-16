@@ -1,14 +1,15 @@
 # Windows APK signing recovery (read-only first)
 
-Goal: determine whether the installed unofficial Rubika-Queu v1.3 can be updated without uninstalling it or losing locally stored queue data.
+Goal: recover a matching signing key for the owner's reported installed Rubika-Queu v1.3.2 (versionCode 15), then verify whether a safe in-place update is possible without deleting the local queue or history.
 
 ## Ground truth
 
 - Application ID: ir.sinicable.rubikaqueue
-- v1.3 uses versionCode 13; v1.3.1 uses versionCode 14 in the GitHub project.
+- The owner's installed v1.3.2 uses versionCode 15; current `main` candidate is versionCode 16 (2026-10-16). Any proposed update must increase versionCode beyond the installed version.
+- Required installed signer certificate SHA-256: `fdb827fa66b05309a2e7a759bc03d9f22355b54cd74c63e74a5d889823087026`.
 - The verified dedicated v0.8/v1.0/v1.1 test APK signer fingerprint is:
   8747838d913e2f0f58dc66e432eb3753bc826e6a3f7e23eaf6bb799cd63af28b.
-- GitHub Actions v1.3 builds use per-run debug keys and therefore are NOT guaranteed to upgrade an APK installed from Android Studio.
+- GitHub Actions builds with ephemeral debug or legacy test keys are **NOT-UPDATABLE** against the owner's installed certificate, even if CI succeeds. The existing `main` build publishes artifacts with an update-compatibility classification, not proof of an on-device upgrade.
 - A certificate fingerprint or a signed APK cannot be used to reconstruct the private signing key.
 - Do not uninstall or clear application data. The Android manifest currently sets android:allowBackup="false".
 
@@ -76,7 +77,7 @@ The script enumerates keystore file paths only, checks the ordinary Android Stud
 
 Compare these fingerprints:
 
-1. Installed v1.3 APK: Signer #1 certificate SHA-256 digest printed by apksigner.
+1. Installed v1.3.2/code15 APK: Signer #1 certificate SHA-256 digest printed by apksigner; expected value is `fdb827fa66b05309a2e7a759bc03d9f22355b54cd74c63e74a5d889823087026`.
 2. Default Windows Android Studio debug key, usually %USERPROFILE%\.android\debug.keystore, as printed by keytool.
 3. Dedicated test key, if an original test-signing.p12 file is located locally. To check a non-default PKCS12 file, run keytool -list -v -storetype PKCS12 -keystore <local-path> locally and enter the password only at the interactive prompt, not in chat or scripts.
 4. Dedicated GitHub certificate from v1.1 above.
