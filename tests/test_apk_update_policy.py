@@ -10,14 +10,14 @@ spec.loader.exec_module(policy)
 
 INSTALLED = {
     'package': 'ir.sinicable.rubikaqueue',
-    'version_code': 14,
+    'version_code': 15,
     'certificate_sha256': 'fdb827fa66b05309a2e7a759bc03d9f22355b54cd74c63e74a5d889823087026',
 }
 
 
 class TestApkUpdatePolicy(unittest.TestCase):
     def make_candidate(self, **changes):
-        result = dict(INSTALLED, version_code=15)
+        result = dict(INSTALLED, version_code=16)
         result.update(changes)
         return result
 
@@ -27,10 +27,10 @@ class TestApkUpdatePolicy(unittest.TestCase):
         self.assertTrue(all(checks.values()))
 
     def test_same_version_is_not_an_upgrade(self):
-        self.assertEqual(policy.classify(self.make_candidate(version_code=14), INSTALLED)[0], 'NOT_UPDATABLE')
+        self.assertEqual(policy.classify(self.make_candidate(version_code=15), INSTALLED)[0], 'NOT_UPDATABLE')
 
     def test_previous_version_is_rejected(self):
-        self.assertEqual(policy.classify(self.make_candidate(version_code=13), INSTALLED)[0], 'NOT_UPDATABLE')
+        self.assertEqual(policy.classify(self.make_candidate(version_code=14), INSTALLED)[0], 'NOT_UPDATABLE')
 
     def test_different_signer_is_rejected_even_at_higher_version(self):
         candidate = self.make_candidate(certificate_sha256='8747838d913e2f0f58dc66e432eb3753bc826e6a3f7e23eaf6bb799cd63af28b')
@@ -48,8 +48,8 @@ class TestApkUpdatePolicy(unittest.TestCase):
             policy.normalize_certificate('not-a-certificate')
 
     def test_aapt_package_parser(self):
-        record = policy.parse_badging("package: name='ir.sinicable.rubikaqueue' versionCode='15' versionName='1.3.2'\n")
-        self.assertEqual(record, {'package': 'ir.sinicable.rubikaqueue', 'version_code': 15, 'version_name': '1.3.2'})
+        record = policy.parse_badging("package: name='ir.sinicable.rubikaqueue' versionCode='16' versionName='1.3.2-messaging-safety'\n")
+        self.assertEqual(record, {'package': 'ir.sinicable.rubikaqueue', 'version_code': 16, 'version_name': '1.3.2-messaging-safety'})
 
     def test_apksigner_parser_rejects_multisigner_without_policy(self):
         cert = INSTALLED['certificate_sha256']

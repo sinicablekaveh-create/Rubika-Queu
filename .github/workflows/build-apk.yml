@@ -200,7 +200,7 @@ jobs:
             printf '%s' "$LEGACY_TEST_P12_BASE64" | base64 --decode > signing/test-signing.p12
             echo "legacy-test" > signing/selected-key-origin
           else
-            echo "::warning::No owner signing key is configured. Generated debug APK cannot update the installed code 14 app."
+            echo "::warning::No owner signing key is configured. Generated debug APK cannot update the installed code 15 app."
           fi
 
       - name: Build signed APK
@@ -223,7 +223,7 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
           # Verify the selected key against the exact known certificate, never an arbitrary signer.
-          # Installed v1.3.1/code14 and legacy v1.1 use different keys.
+          # Installed v1.3.2/code15 and legacy v1.1 use different keys.
           if [ -s signing/test-signing.p12 ]; then
             if [ "$(cat signing/selected-key-origin)" = 'installed' ]; then
               expected='fdb827fa66b05309a2e7a759bc03d9f22355b54cd74c63e74a5d889823087026'
@@ -237,7 +237,7 @@ jobs:
             --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
             --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
             --installed-package 'ir.sinicable.rubikaqueue' \
-            --installed-version-code 14 \
+            --installed-version-code 15 \
             --installed-certificate 'fdb827fa66b05309a2e7a759bc03d9f22355b54cd74c63e74a5d889823087026' \
             --report apk-update-report.json \
             --summary "$GITHUB_STEP_SUMMARY"
@@ -245,7 +245,7 @@ jobs:
           if [ "$classification" = 'UPDATE_CANDIDATE_UNTESTED' ]; then
             cp "$apk" Rubika-Queu-v1.3.2-UPDATE-CANDIDATE-UNTESTED.apk
           else
-            echo "::warning::Built APK cannot update the owner's installed v1.3.1 (code 14). Do not uninstall or clear app data."
+            echo "::warning::Built APK cannot update the owner's installed v1.3.2 (code 15). Do not uninstall or clear app data."
             cp "$apk" Rubika-Queu-v1.3.2-NOT-UPDATABLE.apk
           fi
 
