@@ -192,6 +192,9 @@ jobs:
       - name: Test trusted-device signer provisioning safety
         run: python3 -m unittest discover -s tests -p 'test_stable_signing_provision.py' -v
 
+      - name: Test CI ephemeral signing isolation
+        run: python3 -m unittest discover -s tests -p 'test_stable_release_smoke.py' -v
+
       - name: Install Android platform from runner SDK
         run: |
           set -euo pipefail
@@ -238,6 +241,49 @@ jobs:
             echo "::warning::Built APK cannot update the owner's installed v1.3.2 (code 15). Do not uninstall or clear app data."
             cp "$apk" Rubika-Queu-v1.4.0-NOT-UPDATABLE.apk
           fi
+
+      # Smoke-test the actual RELEASE signing path using a disposable CI key.
+      # No permanent GitHub secret is exposed and no smoke-test APK is uploaded.
+      # The stable manual dispatch skips this and uses the owner's key later.
+      - name: Verify throwaway key can sign a release APK
+        if: github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable'
+        env:
+          RUBIKA_STABLE_KEYSTORE_PASSWORD: ci-throwaway-only-not-a-secret
+          RUBIKA_STABLE_KEY_PASSWORD: ci-throwaway-only-not-a-secret
+          RUBIKA_STABLE_KEY_ALIAS: ci-disposable
+          RUBIKA_STABLE_KEYSTORE_PATH: signing/ci-test-release.p12
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p signing
+          trap 'rm -f signing/ci-test-release.p12 app/build/outputs/apk/release/app-release.apk' EXIT
+          keytool -genkeypair \
+            -alias "$RUBIKA_STABLE_KEY_ALIAS" \
+            -keyalg RSA -keysize 3072 -sigalg SHA256withRSA \
+            -validity 1 -storetype PKCS12 \
+            -keystore "$RUBIKA_STABLE_KEYSTORE_PATH" \
+            -dname "CN=Disposable CI Signing Key, OU=Tests, O=Rubika Queu, C=IR" \
+            -storepass:env RUBIKA_STABLE_KEYSTORE_PASSWORD \
+            -keypass:env RUBIKA_STABLE_KEY_PASSWORD \
+            -noprompt
+          pin="$(keytool -list -v -storetype PKCS12 \
+            -keystore "$RUBIKA_STABLE_KEYSTORE_PATH" \
+            -alias "$RUBIKA_STABLE_KEY_ALIAS" \
+            -storepass:env RUBIKA_STABLE_KEYSTORE_PASSWORD |
+            awk '/^[[:space:]]*SHA256:/ { print $2; exit }')"
+          test -n "$pin"
+          ./gradlew --no-daemon --max-workers=4 lintRelease assembleRelease
+          apk='app/build/outputs/apk/release/app-release.apk'
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
+          python3 scripts/verify_stable_release.py \
+            --apk "$apk" \
+            --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+            --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            --expected-certificate "$pin" \
+            --report "$RUNNER_TEMP/ci-release-smoke-report.json"
+          echo "Disposable signing smoke test passed; release APK and key will be deleted."
 
       - name: Upload verified test APK
         if: github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable'
