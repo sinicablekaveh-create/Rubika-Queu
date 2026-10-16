@@ -12,7 +12,7 @@ if marker in source:
         raise SystemExit("Ambiguous existing duplicate guard")
     print("Duplicate destination guard already installed")
     raise SystemExit(0)
-anchor='     current=job.getJSONArray("recipients").getJSONObject(n);dispatch=false;'
+anchor='current=job.getJSONArray("recipients").getJSONObject(n);dispatch=false;'
 if source.count(anchor)!=1:
     raise SystemExit("Unexpected dispatch boundary; refusing to modify sender")
 # The predecessor was already processed or has an unknown outcome; never resend.
