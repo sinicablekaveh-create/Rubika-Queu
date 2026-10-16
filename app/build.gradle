@@ -22,20 +22,11 @@ android {
             keyAlias System.getenv('RUBIKA_STABLE_KEY_ALIAS') ?: ''
             keyPassword System.getenv('RUBIKA_STABLE_KEY_PASSWORD') ?: ''
         }
-        testKey {
-            storeFile rootProject.file('signing/test-signing.p12')
-            storeType 'pkcs12'
-            storePassword System.getenv('RUBIKA_TEST_KEYSTORE_PASSWORD') ?: 'android'
-            keyAlias System.getenv('RUBIKA_TEST_KEY_ALIAS') ?: 'test'
-            keyPassword System.getenv('RUBIKA_TEST_KEY_PASSWORD') ?: 'android'
-        }
     }
 
     buildTypes {
         debug {
-            if (rootProject.file('signing/test-signing.p12').exists()) {
-                signingConfig signingConfigs.testKey
-            }
+            // CI debug APKs use Android's disposable per-run debug key only.
             minifyEnabled false
         }
         release {
