@@ -30,7 +30,7 @@ class CoreCiConsolidationTests(unittest.TestCase):
             "overrides/plugin-system/*.java tests/PluginSystemTests.java",
             "node tests/personal-gateway-auth.test.mjs",
             "tests/MessageQueuePolicyTests.java",
-            "tests/test_apk_update_policy.py",
+            "test_apk_update_policy.py",
             "lintDebug assembleDebug",
         )
         for command in required:
