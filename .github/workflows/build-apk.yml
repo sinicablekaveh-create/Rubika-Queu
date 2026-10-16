@@ -52,6 +52,9 @@ jobs:
       - name: Install additive AI discovery engine
         run: python3 scripts/add-ai-discovery.py
 
+      - name: Install queue-start discovery integration
+        run: python3 scripts/add-queue-start-discovery.py
+
       - name: Install dependency-free plugin core
         run: python3 scripts/add-plugin-system.py
 
@@ -86,6 +89,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Test queue-start discovery policy
+        run: |
+          mkdir -p "$RUNNER_TEMP/queue-discovery-tests"
+          javac -d "$RUNNER_TEMP/queue-discovery-tests" \
+            overrides/ai-discovery/QueueStartDiscoveryPolicy.java \
+            tests/QueueStartDiscoveryPolicyTests.java
+          java -cp "$RUNNER_TEMP/queue-discovery-tests" ir.sinicable.rubikaqueue.QueueStartDiscoveryPolicyTests
+
+      - name: Test queue-start discovery source integration
+        run: python3 -m unittest discover -s tests -p 'test_queue_start_discovery_installer.py' -v
 
       - name: Test optional-provider fallback, plugin lifecycle and workflows
         run: |
