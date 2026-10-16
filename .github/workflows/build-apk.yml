@@ -21,6 +21,27 @@ permissions:
   contents: read
 
 jobs:
+  approved-destinations-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify draft PR destination guard without messaging
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/approved-destination-tests"
+          javac -d "$RUNNER_TEMP/approved-destination-tests" \
+            overrides/allowed-destinations/AllowedDestinationPolicy.java \
+            tests/AllowedDestinationPolicyTests.java
+          java -cp "$RUNNER_TEMP/approved-destination-tests" ir.sinicable.rubikaqueue.AllowedDestinationPolicyTests
+          python3 -m unittest discover -s tests -p 'test_allowed_destinations_installer.py' -v
+
   build:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -75,6 +96,9 @@ jobs:
 
       - name: Install message preflight and safe-dispatch policy
         run: python3 scripts/add-message-queue-policy.py
+
+      - name: Install approved-destination safety guard
+        run: python3 scripts/add-allowed-destinations.py
 
       - name: Install dependency-free plugin core
         run: python3 scripts/add-plugin-system.py
@@ -131,6 +155,16 @@ jobs:
             tests/MessageQueuePolicyTests.java
           java -cp "$RUNNER_TEMP/message-policy-tests" ir.sinicable.rubikaqueue.MessageQueuePolicyTests
           python3 -m unittest discover -s tests -p 'test_message_policy_installer.py' -v
+
+      - name: Test approved destinations (no messages)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/approved-destination-tests"
+          javac -d "$RUNNER_TEMP/approved-destination-tests" \
+            overrides/allowed-destinations/AllowedDestinationPolicy.java \
+            tests/AllowedDestinationPolicyTests.java
+          java -cp "$RUNNER_TEMP/approved-destination-tests" ir.sinicable.rubikaqueue.AllowedDestinationPolicyTests
+          python3 -m unittest discover -s tests -p 'test_allowed_destinations_installer.py' -v
 
       - name: Test optional-provider fallback, plugin lifecycle and workflows
         run: |
@@ -286,7 +320,7 @@ jobs:
           echo "Disposable signing smoke test passed; release APK and key will be deleted."
 
       - name: Upload verified test APK
-        if: github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable'
+        if: (github.event_name != 'workflow_dispatch' || inputs.artifact_mode != 'stable') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
         uses: actions/upload-artifact@v4
         with:
           name: Rubika-Queu-v1.4.0-test-apk
