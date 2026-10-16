@@ -156,22 +156,31 @@ jobs:
       - name: Test discovery SQLite and HTTPS client
         run: gradle --no-daemon --max-workers=4 -p tests/discovery-runtime test
 
-      - name: Restore permanent test signing key if configured
+      - name: Restore owner signing key if configured
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
-          TEST_P12_BASE64: ${{ secrets.RUBIKA_TEST_KEYSTORE_BASE64 }}
+          INSTALLED_P12_BASE64: ${{ secrets.RUBIKA_INSTALLED_KEYSTORE_BASE64 }}
+          LEGACY_TEST_P12_BASE64: ${{ secrets.RUBIKA_TEST_KEYSTORE_BASE64 }}
+        shell: bash
         run: |
-          if [ -n "$TEST_P12_BASE64" ]; then
-            mkdir -p signing
-            printf '%s' "$TEST_P12_BASE64" | base64 --decode > signing/test-signing.p12
+          set -euo pipefail
+          mkdir -p signing
+          umask 077
+          if [ -n "$INSTALLED_P12_BASE64" ]; then
+            printf '%s' "$INSTALLED_P12_BASE64" | base64 --decode > signing/test-signing.p12
+            echo "installed" > signing/selected-key-origin
+          elif [ -n "$LEGACY_TEST_P12_BASE64" ]; then
+            printf '%s' "$LEGACY_TEST_P12_BASE64" | base64 --decode > signing/test-signing.p12
+            echo "legacy-test" > signing/selected-key-origin
           else
-            echo "::warning::Dedicated key is unavailable; this run produces a debug APK which CANNOT update the previous signed test APK."
+            echo "::warning::No owner signing key is configured. Generated debug APK cannot update the installed code 14 app."
           fi
 
       - name: Build signed APK
         env:
-          RUBIKA_TEST_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && secrets.RUBIKA_TEST_KEYSTORE_PASSWORD || '' }}
-          RUBIKA_TEST_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && secrets.RUBIKA_TEST_KEY_PASSWORD || '' }}
+          RUBIKA_TEST_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && (secrets.RUBIKA_INSTALLED_KEYSTORE_PASSWORD || secrets.RUBIKA_TEST_KEYSTORE_PASSWORD) || '' }}
+          RUBIKA_TEST_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && (secrets.RUBIKA_INSTALLED_KEY_PASSWORD || secrets.RUBIKA_TEST_KEY_PASSWORD) || '' }}
+          RUBIKA_TEST_KEY_ALIAS: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && (secrets.RUBIKA_INSTALLED_KEY_ALIAS || secrets.RUBIKA_TEST_KEY_ALIAS) || 'test' }}
         run: |
           gradle wrapper --gradle-version 8.9
           if ! ./gradlew --no-daemon --max-workers=4 lintDebug assembleDebug; then
@@ -186,10 +195,15 @@ jobs:
           test -s "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
-          # The permanent v1.1 test key is not the certificate on the user's
-          # currently installed 1.3.1 (code 14) Android application.
+          # Verify the selected key against the exact known certificate, never an arbitrary signer.
+          # Installed v1.3.1/code14 and legacy v1.1 use different keys.
           if [ -s signing/test-signing.p12 ]; then
-            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" | grep -qi '8747838d913e2f0f58dc66e432eb3753bc826e6a3f7e23eaf6bb799cd63af28b'
+            if [ "$(cat signing/selected-key-origin)" = 'installed' ]; then
+              expected='fdb827fa66b05309a2e7a759bc03d9f22355b54cd74c63e74a5d889823087026'
+            else
+              expected='8747838d913e2f0f58dc66e432eb3753bc826e6a3f7e23eaf6bb799cd63af28b'
+            fi
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" | grep -qi "$expected"
           fi
           python3 scripts/apk_update_policy.py \
             --apk "$apk" \
