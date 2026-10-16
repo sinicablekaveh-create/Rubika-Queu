@@ -29,6 +29,10 @@ android {
 
     buildTypes {
         debug {
+            // Install this diagnostic build alongside the existing Rubika queue.
+            // Release identity, original namespace, and its data sandbox are untouched.
+            applicationIdSuffix '.sidecar'
+            versionNameSuffix '-sidecar-test'
             // CI debug APKs use Android's disposable per-run debug key only.
             minifyEnabled false
         }
