@@ -21,6 +21,16 @@ permissions:
   contents: read
 
 jobs:
+  queue-runtime-launch-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate queue runtime launch repairs without sending
+        run: python3 -m unittest discover -s tests -p 'test_queue_runtime_launch.py' -v
+
   build:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -75,6 +85,9 @@ jobs:
 
       - name: Install message preflight and safe-dispatch policy
         run: python3 scripts/add-message-queue-policy.py
+
+      - name: Repair queue startup feedback and Android notification permission handling
+        run: python3 scripts/repair-queue-runtime-launch.py
 
       - name: Install dependency-free plugin core
         run: python3 scripts/add-plugin-system.py
@@ -134,6 +147,9 @@ jobs:
             tests/MessageQueuePolicyTests.java
           java -cp "$RUNNER_TEMP/message-policy-tests" ir.sinicable.rubikaqueue.MessageQueuePolicyTests
           python3 -m unittest discover -s tests -p 'test_message_policy_installer.py' -v
+
+      - name: Test queue startup diagnostics (no messages)
+        run: python3 -m unittest discover -s tests -p 'test_queue_runtime_launch.py' -v
 
       - name: Test optional-provider fallback, plugin lifecycle and workflows
         run: |
