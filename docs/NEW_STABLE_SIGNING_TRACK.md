@@ -33,6 +33,45 @@ and have strictly increasing `versionCode`.
   releases. Increase versionCode monotonically; record the published highest
   signed version code outside the repository and verify it before another run.
 
+## Faster owner-side provisioning (new keys only)
+
+You can replace the multiple GitHub Settings steps below with the checked-in
+[one-time provisioning helper](../scripts/provision_stable_signing.py) on a
+**trusted personal computer**. It creates a new permanent key (or safely reuses
+the same local file), prints only the public certificate fingerprint, and uses
+authenticated GitHub CLI to set four encrypted GitHub Secrets and the public
+certificate-pin variable. It never publishes the private key to Git history,
+CI artifacts, public reports or this chat.
+
+Prerequisites: Python 3.9+, JDK 17+ (`keytool` on PATH), GitHub CLI (`gh`
+on PATH), and a GitHub account with permission to manage repository Actions
+secrets/variables. On Windows, from a trusted PowerShell terminal:
+
+```powershell
+gh auth login
+git clone https://github.com/sinicablekaveh-create/Rubika-Queu.git
+cd Rubika-Queu
+py scripts/provision_stable_signing.py
+```
+
+If you already cloned the repository, pull the current main branch rather than
+cloning again. The default private-key file is
+`%USERPROFILE%\.rubikaqueue-private\rubika-stable-v2.p12`. Keep the
+`.rubikaqueue-private` folder **outside the repository**. The tool refuses
+to overwrite a local key, refuses a different public signer once pinned on
+GitHub, and never tries to recover any older key.
+
+**Back up the private key and password twice, OFFLINE**, before typing
+`BACKED UP` at the provisioning prompt. If the PC or the key is lost, Android
+upgrades signed by that exact private key cannot be reproduced. GitHub Actions
+stores a copy encrypted as a secret, but that is not an offline recovery plan.
+
+The helper does **not** automatically run an Android release or install the
+APK on the device. Once the script confirms GitHub names and certificate pin,
+go to Actions → Build Rubika Queu Test APK → Run workflow → main → stable.
+The workflow verifies the produced APK independently. Do not confuse the
+ordinary `test` artifact with a new permanent-signer release.
+
 ## One-time key creation on a trusted owner-controlled machine
 
 Do this **offline on the owner's trusted Windows or Linux machine**, not in
