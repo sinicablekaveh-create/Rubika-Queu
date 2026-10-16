@@ -71,6 +71,9 @@ jobs:
           cp -a "$RUNNER_TEMP/rubika-src/app/src/main/java" app/src/main/
           cp -a "$RUNNER_TEMP/rubika-src/app/src/main/assets" app/src/main/
 
+      - name: Audit queue backup integration points (static source only)
+        run: python3 scripts/inspect-queue-backup-surface.py
+
       - name: Apply official Bot API v2 patch to extracted source
         run: |
           set -euo pipefail
