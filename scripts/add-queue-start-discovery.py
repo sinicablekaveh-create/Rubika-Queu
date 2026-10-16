@@ -29,7 +29,8 @@ queue_anchor = "if(JobStore.uncertain(job))throw new Exception(\"ابتدا مو
 queue_block = queue_anchor + '''
    if(QueueStartDiscovery.enabled(this)){
     checkpoint(job,"جست‌وجوی خودکار گروه و تماس عمومی پیش از ادامه صف");
-    try{QueueStartDiscovery.run(this,client,new QueueStartDiscovery.Progress(){public boolean stopped(){return cancel;}public void update(String note)throws Exception{checkpoint(job,"جست‌وجوی خودکار: "+note);}});}
+    final JSONObject discoveryJob=job;
+    try{QueueStartDiscovery.run(this,client,new QueueStartDiscovery.Progress(){public boolean stopped(){return cancel;}public void update(String note)throws Exception{checkpoint(discoveryJob,"جست‌وجوی خودکار: "+note);}});}
     catch(InterruptedException stopped){throw stopped;}
     catch(RubikaClient.ApiError api){if(DiscoveryEngine.rate(api))throw api;checkpoint(job,"جست‌وجو کامل نشد؛ صف ادامه می‌یابد: "+MainActivity.error(api));}
     catch(Exception searchError){if(cancel)throw new InterruptedException("جست‌وجو متوقف شد");checkpoint(job,"جست‌وجو کامل نشد؛ صف ادامه می‌یابد: "+MainActivity.error(searchError));}

@@ -35,6 +35,8 @@ class QueueStartDiscoveryInstallerTests(unittest.TestCase):
         self.assertIn('getBoolean(QueueStartDiscoveryPolicy.PREFERENCE,true)', main)
         self.assertIn('putBoolean(QueueStartDiscoveryPolicy.PREFERENCE,checked)', main)
         self.assertLess(queue.index("QueueStartDiscovery.run(this,client"), queue.index("while(!cancel)"))
+        self.assertIn("final JSONObject discoveryJob=job;", queue)
+        self.assertIn("checkpoint(discoveryJob,\"جست‌وجوی خودکار: \"+note)", queue)
         self.assertIn("catch(RubikaClient.ApiError api){if(DiscoveryEngine.rate(api))throw api;", queue)
 
     def test_installer_is_idempotent(self):
