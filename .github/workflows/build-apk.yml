@@ -43,8 +43,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_allowed_destinations_installer.py' -v
 
   build:
-    # Temporary PR #41 validation: compile and lint the full Android application while draft.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false || github.event.pull_request.number == 41
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
