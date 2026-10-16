@@ -28,6 +28,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      # This archive is source-only and carries no account state or messaging credentials.
       - name: Export audited source bundle for code-level diagnosis only
         uses: actions/upload-artifact@v4
         with:
