@@ -12,6 +12,7 @@ if s.count(needle) != 1:
 feature = (
     '  button(p,"دستیار AI برای بهبود متن (اختیاری)",()->{Intent ai=new Intent(this,AiAssistantActivity.class);ai.putExtra("draft",message.getText().toString());startActivityForResult(ai,104);});\n'
     '  label(p,"دستیار AI هیچ پیام یا مخاطبی را خودکار ارسال نمی‌کند. متن پیشنهادی را پس از بازبینی خودتان استفاده کنید.",13,false);\n'
+    '  button(p,"گزارش توسعه برای ChatGPT",()->startActivity(new Intent(this,DevelopmentReportActivity.class)));\n'
 )
 s = s.replace(needle, feature + needle, 1)
 s = s.replace("نسخهٔ آزمایشی و غیررسمی ۱.۱", "نسخهٔ آزمایشی و غیررسمی ۱.۳")
@@ -38,6 +39,6 @@ replacement = (
 )
 s = s.replace(result_anchor, replacement, 1)
 main.write_text(s, encoding="utf-8")
-for name in ("AiAssistantActivity.java", "AiPromptPolicy.java", "AiOnlineClient.java", "AiDeveloperClient.java"):
+for name in ("AiAssistantActivity.java", "AiPromptPolicy.java", "AiOnlineClient.java", "AiDeveloperClient.java", "DevelopmentReportActivity.java", "DevelopmentReportBuilder.java"):
     shutil.copyfile(Path("overrides/ai-assistant") / name, base / name)
 print("Opt-in AI drafting assistant installed without modifying message queue.")

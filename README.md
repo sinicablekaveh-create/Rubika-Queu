@@ -1,3 +1,9 @@
+## ChatGPT development report (v1.3.2, code 15)
+
+The main queue screen now offers **گزارش توسعه برای ChatGPT**: an explicit development-request form, locally generated public app metadata (package/version/Android SDK), an editable preview, copy, Android text-sharing chooser, and an opt-in ChatGPT website handoff. The app does not automatically read contacts, queued messages, private Rubika data, tokens, or credentials. No ChatGPT session or API integration is implied, and no outgoing Rubika message is sent by this flow.
+
+**Upgrade caveat:** This source version raises code 14 to code 15, retaining package `ir.sinicable.rubikaqueue`. The owner's installed v1.3.1/code14 certificate is `fdb827fa66b05309a2e7a759bc03d9f22355b54cd74c63e74a5d889823087026`, which **does not match** the test certificate currently documented in CI. The build workflow reports the candidate's certificate and will mark it `NOT_UPDATABLE` unless the original installed certificate's signing key is supplied through a secure GitHub Actions secret. Do not uninstall the installed app or assume a new debug APK preserves data. CI does not recover the signing private key from the installed APK.
+
 # Rubika-Queu – Android Message Queue
 
 [![Build Android APK](https://github.com/sinicablekaveh-create/Rubika-Queu/actions/workflows/build-apk.yml/badge.svg)](https://github.com/sinicablekaveh-create/Rubika-Queu/actions/workflows/build-apk.yml)

@@ -129,6 +129,15 @@ jobs:
             tests/AiPromptPolicyTests.java
           java -cp "$RUNNER_TEMP/ai-policy-tests" ir.sinicable.rubikaqueue.AiPromptPolicyTests
 
+      - name: Test ChatGPT development report boundaries
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/report-tests"
+          javac -d "$RUNNER_TEMP/report-tests" \
+            overrides/ai-assistant/DevelopmentReportBuilder.java \
+            tests/DevelopmentReportBuilderTests.java
+          java -cp "$RUNNER_TEMP/report-tests" ir.sinicable.rubikaqueue.DevelopmentReportBuilderTests
+
       - name: Test APK update policy
         run: python3 -m unittest discover -s tests -p 'test_apk_update_policy.py' -v
 
@@ -193,17 +202,17 @@ jobs:
             --summary "$GITHUB_STEP_SUMMARY"
           classification="$(python3 -c 'import json; print(json.load(open("apk-update-report.json"))["classification"])')"
           if [ "$classification" = 'UPDATE_CANDIDATE_UNTESTED' ]; then
-            cp "$apk" Rubika-Queu-v1.3.1-UPDATE-CANDIDATE-UNTESTED.apk
+            cp "$apk" Rubika-Queu-v1.3.2-UPDATE-CANDIDATE-UNTESTED.apk
           else
             echo "::warning::Built APK cannot update the owner's installed v1.3.1 (code 14). Do not uninstall or clear app data."
-            cp "$apk" Rubika-Queu-v1.3.1-NOT-UPDATABLE.apk
+            cp "$apk" Rubika-Queu-v1.3.2-NOT-UPDATABLE.apk
           fi
 
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rubika-Queu-v1.3.1-apk
+          name: Rubika-Queu-v1.3.2-apk
           path: |
-            Rubika-Queu-v1.3.1-*.apk
+            Rubika-Queu-v1.3.2-*.apk
             apk-update-report.json
           if-no-files-found: error
