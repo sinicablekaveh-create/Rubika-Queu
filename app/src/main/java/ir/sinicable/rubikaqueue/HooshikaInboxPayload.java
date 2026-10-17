@@ -134,7 +134,8 @@ final class HooshikaInboxPayload {
         String kind=row.optString("kind");
         String url=row.optString("url");
         String phone=DiscoveryLinks.phone(row.optString("phone"));
-        if(DiscoveryLinks.publicKind(kind))keys.add(kind+":"+DiscoveryLinks.rubika(url));
+        // A public Rubika URL represents one destination even if the source labels it group or channel.
+        if(DiscoveryLinks.publicKind(kind))keys.add("rubika-public:"+DiscoveryLinks.rubika(url));
         else {
             if(!phone.isEmpty())keys.add("business:"+phone);
             if(!url.isEmpty())keys.add("business-url:"+DiscoveryLinks.https(url).toLowerCase(Locale.ROOT));
