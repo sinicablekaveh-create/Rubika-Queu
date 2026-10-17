@@ -9,7 +9,7 @@ public class HooshikaInboxPayloadTest {
     private String payload(String items){
         return "{\"schema\":\"hooshika.rubika.handoff.v1\",\"items\":"+items+"}";
     }
-    @Test public void acceptsBothTypesButNeverApproval() {
+    @Test public void acceptsBothTypesButNeverApproval() throws Exception {
         JSONArray rows=HooshikaInboxPayload.decode(payload(
             "[{\"kind\":\"business_contact\",\"name\":\"Shop\",\"phone\":\"09120000000\",\"consent\":true},"
           + "{\"kind\":\"public_group\",\"name\":\"Group\",\"url\":\"https://rubika.ir/electric_group\",\"approved\":true}]"));
@@ -19,14 +19,14 @@ public class HooshikaInboxPayloadTest {
         assertFalse(rows.getJSONObject(0).has("consent"));
         assertFalse(rows.getJSONObject(1).has("approved"));
     }
-    @Test public void rejectsWrongSchemaAndImpersonatedRubikaLink() {
+    @Test public void rejectsWrongSchemaAndImpersonatedRubikaLink() throws Exception {
         try{HooshikaInboxPayload.decode("{\"schema\":\"wrong\",\"items\":[]}");fail();}
         catch(IllegalArgumentException expected){}
         try{HooshikaInboxPayload.decode(payload(
             "[{\"kind\":\"public_group\",\"url\":\"https://rubika.ir.attacker.test/abc\"}]"));fail();}
         catch(IllegalArgumentException expected){}
     }
-    @Test public void enforcesPayloadCountAndMergesWithoutLosingInbox() {
+    @Test public void enforcesPayloadCountAndMergesWithoutLosingInbox() throws Exception {
         StringBuilder b=new StringBuilder("[");
         for(int i=0;i<41;i++){if(i>0)b.append(",");b.append("{\"kind\":\"business_contact\",\"phone\":\"0912").append(i).append("\"}");}
         b.append("]");
