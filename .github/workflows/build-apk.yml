@@ -262,7 +262,7 @@ jobs:
       - name: Build independent CI test APK
         run: |
           gradle wrapper --gradle-version 8.9
-          if ! ./gradlew --no-daemon --max-workers=4 lintDebug assembleDebug; then
+          if ! ./gradlew --no-daemon --max-workers=4 testDebugUnitTest lintDebug assembleDebug; then
             find app/build -name 'lint-results-debug.txt' -type f -print -exec cat {} +
             exit 1
           fi
