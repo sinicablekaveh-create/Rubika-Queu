@@ -9,6 +9,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Iterator;
 
 /** A review-only inbox protocol. Untrusted fields never become a queue job or consent. */
 final class HooshikaInboxPayload {
@@ -84,8 +85,13 @@ final class HooshikaInboxPayload {
                 for(String key:keys)if(seen.containsKey(key)){match=seen.get(key);break;}
                 if(match!=null){
                     JSONObject prior=joined.optJSONObject(match);
-                    if(prior!=null)for(String key:copy.keySet())
-                        if(!prior.has(key))try{prior.put(key,copy.get(key));}catch(Exception ignored){}
+                    if(prior!=null){
+                        Iterator<String> fields=copy.keys();
+                        while(fields.hasNext()){
+                            String key=fields.next();
+                            if(!prior.has(key))try{prior.put(key,copy.get(key));}catch(Exception ignored){}
+                        }
+                    }
                     for(String key:keys)seen.put(key,match);
                 }else{
                     if(joined.length() >= MAX_STORED)
