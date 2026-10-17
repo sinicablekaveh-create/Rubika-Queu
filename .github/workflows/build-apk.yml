@@ -71,6 +71,11 @@ jobs:
           cp -a "$RUNNER_TEMP/rubika-src/app/src/main/java" app/src/main/
           cp -a "$RUNNER_TEMP/rubika-src/app/src/main/assets" app/src/main/
 
+      - name: Require public-page evidence for discovery results
+        run: |
+          python3 scripts/add-public-discovery-safety.py
+          DISCOVERY_ENGINE_TEST_SOURCE=app/src/main/java/ir/sinicable/rubikaqueue/DiscoveryEngine.java python3 -m unittest scripts.test_public_discovery_safety -v
+
       - name: Apply official Bot API v2 patch to extracted source
         run: |
           set -euo pipefail
@@ -262,7 +267,7 @@ jobs:
       - name: Build independent CI test APK
         run: |
           gradle wrapper --gradle-version 8.9
-          if ! ./gradlew --no-daemon --max-workers=4 lintDebug assembleDebug; then
+          if ! ./gradlew --no-daemon --max-workers=4 testDebugUnitTest lintDebug assembleDebug; then
             find app/build -name 'lint-results-debug.txt' -type f -print -exec cat {} +
             exit 1
           fi
@@ -298,6 +303,21 @@ jobs:
           test "$classification" = "NOT_UPDATABLE"
           test -s Rubika-Queu-v1.4.0-NOT-UPDATABLE.apk
           mv Rubika-Queu-v1.4.0-NOT-UPDATABLE.apk Rubika-Queu-v1.4.0-SIDECAR-NEW-INSTALL-TEST.apk
+
+      - name: Record sidecar APK identity and checksum
+        run: |
+          set -euo pipefail
+          apk=Rubika-Queu-v1.4.0-SIDECAR-NEW-INSTALL-TEST.apk
+          test -s "$apk"
+          {
+            echo "repository=$GITHUB_REPOSITORY"
+            echo "commit=$GITHUB_SHA"
+            echo "run=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "apk_sha256=$(sha256sum "$apk" | cut -d ' ' -f 1)"
+            "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | head -1
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk"
+            echo "warning=SIDE-CAR debug test APK; separate package and disposable signature; not an updateable release"
+          } > APK-METADATA.txt
 
       # Smoke-test the actual RELEASE signing path using a disposable CI key.
       # No permanent GitHub secret is exposed and no smoke-test APK is uploaded.
@@ -349,6 +369,7 @@ jobs:
           name: Rubika-Queu-v1.4.0-sidecar-test-apk
           path: |
             Rubika-Queu-v1.4.0-*.apk
+            APK-METADATA.txt
             apk-update-report.json
             sidecar-identity-report.json
           if-no-files-found: error
@@ -415,3 +436,4 @@ jobs:
             Rubika-Queu-v1.4.0-NEW-INSTALL-STABLE.apk
             stable-release-report.json
           if-no-files-found: error
+
