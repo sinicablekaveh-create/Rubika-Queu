@@ -437,3 +437,51 @@ jobs:
             stable-release-report.json
           if-no-files-found: error
 
+  publish-sidecar-preview:
+    # One-time explicitly requested TEST prerelease; never acts on PRs or normal pushes.
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[publish-sidecar-preview]') }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Verify the exact successful build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/38996591821" --jq .conclusion)" = "success"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/38996591821" --jq .head_sha)" = "e4079be357e569c2e6f4ea9d823239451bf732c3"
+      - name: Download pinned test artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 38996591821
+          artifact-ids: 12087571010
+          merge-multiple: true
+          path: staging
+          github-token: ${{ github.token }}
+      - name: Check immutable APK SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'fa083aaa2b0856223f55cb8f6e1cd88cd9f20dd37eb0966b91b9e7f9cc7c198e  staging/Rubika-Queu-v1.4.0-SIDECAR-NEW-INSTALL-TEST.apk' | sha256sum -c
+      - name: Publish separately installed test APK as prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view 'v1.4.0-sidecar-preview-20261017' >/dev/null 2>&1; then
+            echo "::error::Existing release must not be overwritten."
+            exit 1
+          fi
+          printf '%s\n' 'TEST ONLY. This sidecar is a separate Android app (ir.sinicable.rubikaqueue.sidecar, versionCode 18). Signed with a disposable debug key; NOT UPDATABLE and NOT an update to the existing queue. Never uninstall or clear the original app. The selected Hooshika items enter only the isolated review inbox. No real device installation or live messaging test. APK SHA-256: fa083aaa2b0856223f55cb8f6e1cd88cd9f20dd37eb0966b91b9e7f9cc7c198e.' > release-notes.md
+          gh release create 'v1.4.0-sidecar-preview-20261017' 'staging/Rubika-Queu-v1.4.0-SIDECAR-NEW-INSTALL-TEST.apk' \
+            --target 'e4079be357e569c2e6f4ea9d823239451bf732c3' \
+            --title 'Rubika-Queu 1.4.0 sidecar TEST (not updatable)' \
+            --notes-file release-notes.md --prerelease --latest=false
