@@ -8,6 +8,8 @@ on:
 permissions:
   actions: read
   contents: write
+env:
+  GH_REPO: ${{ github.repository }}
 jobs:
   publish:
     if: github.ref == 'refs/heads/main'
