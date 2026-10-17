@@ -12,6 +12,7 @@ import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.EditText;
 import android.widget.Toast;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -24,6 +25,7 @@ public final class HooshikaInboxActivity extends Activity {
     private static final String KEY="review_items";
     private JSONArray incoming=new JSONArray();
     private final Set<Integer> checked=new HashSet<>();
+    private final Set<Integer> checkedSaved=new HashSet<>();
     private LinearLayout view;
 
     @Override public void onCreate(Bundle state){
@@ -60,7 +62,7 @@ public final class HooshikaInboxActivity extends Activity {
     private JSONArray saved(){
         SharedPreferences p=getSharedPreferences(PREFS,Context.MODE_PRIVATE);
         try{return new JSONArray(p.getString(KEY,"[]"));}
-        catch(Exception ignored){return new JSONArray();}
+        catch(Exception e){throw new IllegalStateException("صندوق بررسی خوانده نشد",e);}
     }
 
     private void draw(){
@@ -75,7 +77,7 @@ public final class HooshikaInboxActivity extends Activity {
             JSONObject row=incoming.optJSONObject(i);if(row==null)continue;
             final int index=i;
             CheckBox cb=new CheckBox(this);
-            String kind="public_group".equals(row.optString("kind"))?"گروه/کانال":"مخاطب کسب‌وکار";
+            String kind=DiscoveryLinks.publicKind(row.optString("kind"))?"گروه/کانال":"مخاطب کسب‌وکار";
             cb.setText(kind+" | "+row.optString("name")+"\n"
                 +(row.optString("phone").isEmpty()?"":row.optString("phone")+"\n")
                 +row.optString("url"));
@@ -98,14 +100,51 @@ public final class HooshikaInboxActivity extends Activity {
         }
         JSONArray rows=saved();
         view.addView(label("نتایج نگهداری‌شده برای بررسی: "+rows.length(),17));
+        checkedSaved.clear();
         for(int i=0;i<rows.length();i++){
             JSONObject row=rows.optJSONObject(i);if(row==null)continue;
-            view.addView(label(("public_group".equals(row.optString("kind"))?"گروه/کانال":"کسب‌وکار")
-               +" | "+row.optString("name")+"\n"
+            CheckBox review=new CheckBox(this);
+            review.setChecked(false);
+            final int index=i;
+            review.setText((DiscoveryLinks.publicKind(row.optString("kind"))?"گروه/کانال":"کسب‌وکار")
+               +" | "+row.optString("name")
                +(row.optString("phone").isEmpty()?"":row.optString("phone")+"\n")
-               +row.optString("url"),14));
+               +row.optString("url")
+               +(row.optBoolean("reviewApproved")?"\nتأیید شده با یادداشت کاربر":"\nدر انتظار بررسی"));
+            review.setOnCheckedChangeListener((button,yes)->{
+                if(yes)checkedSaved.add(index);else checkedSaved.remove(index);
+            });
+            view.addView(review);
         }
+        if(rows.length()>0)view.addView(action(
+            "تأیید دستی موارد انتخاب‌شده پس از اطمینان از مجوز تماس",this::requestAuthorization));
         view.addView(label("وضعیت ارسال: هیچ اقدامی انجام نشده است. هیچ شماره یا گروهی خودکار وارد صف نمی‌شود.",13));
+    }
+
+    private void requestAuthorization(){
+        if(checkedSaved.isEmpty()){
+            Toast.makeText(this,"ابتدا نتیجه‌های صندوق را انتخاب کنید",Toast.LENGTH_SHORT).show();return;
+        }
+        EditText reason=new EditText(this);
+        reason.setHint("منبع یا دلیل مجوز تماس را بنویسید");
+        new AlertDialog.Builder(this).setTitle("تأیید مجوز تماس")
+            .setMessage("فقط اگر جداگانه از مجوز تماس مطمئن شده‌اید تأیید کنید. این کار پیامی نمی‌فرستد و صف را تغییر نمی‌دهد.")
+            .setView(reason).setNegativeButton("لغو",null)
+            .setPositiveButton("ثبت تأیید دستی",(dialog,which)->authorizeSaved(reason.getText().toString())).show();
+    }
+
+    private void authorizeSaved(String basis){
+        try{
+            JSONArray updated=HooshikaInboxPayload.authorizeSelected(
+                saved(),checkedSaved,basis,System.currentTimeMillis());
+            boolean ok=getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit()
+                .putString(KEY,updated.toString()).commit();
+            if(!ok)throw new IllegalStateException("Saving failed");
+            Toast.makeText(this,"تأیید دستی ذخیره شد؛ صف ارسال تغییری نکرد",Toast.LENGTH_LONG).show();
+            draw();
+        }catch(Exception e){
+            Toast.makeText(this,"ثبت انجام نشد؛ دادهٔ قبلی حفظ شد",Toast.LENGTH_LONG).show();
+        }
     }
 
     private void saveChecked(){
@@ -128,3 +167,4 @@ public final class HooshikaInboxActivity extends Activity {
         }
     }
 }
+
