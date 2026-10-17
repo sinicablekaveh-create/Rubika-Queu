@@ -79,7 +79,7 @@ final class HooshikaInboxPayload {
             for(int i=0;i<source.length();i++) {
                 JSONObject row=source.optJSONObject(i);
                 if(row == null)continue;
-                JSONObject copy=new JSONObject(row.toString());
+                JSONObject copy=copyOf(row);
                 Set<String> keys=identities(copy);
                 Integer match=null;
                 for(String key:keys)if(seen.containsKey(key)){match=seen.get(key);break;}
@@ -115,7 +115,7 @@ final class HooshikaInboxPayload {
         for(int i=0;i<existing.length();i++) {
             JSONObject row=existing.optJSONObject(i);
             if(row==null)throw new IllegalArgumentException("Malformed saved inbox");
-            JSONObject copy=new JSONObject(row.toString());
+            JSONObject copy=copyOf(row);
             if(indexes.contains(i))try{
                 copy.put("reviewApproved",true);
                 copy.put("authorizationBasis",note);
@@ -140,6 +140,11 @@ final class HooshikaInboxPayload {
             if(!url.isEmpty())keys.add("business-url:"+DiscoveryLinks.https(url).toLowerCase(Locale.ROOT));
         }
         return keys;
+    }
+
+    private static JSONObject copyOf(JSONObject row) {
+        try { return new JSONObject(row.toString()); }
+        catch (Exception e) { throw new IllegalArgumentException("Invalid review item",e); }
     }
 
     private static String string(JSONObject row,String key,int limit){
