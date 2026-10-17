@@ -436,3 +436,4 @@ jobs:
             Rubika-Queu-v1.4.0-NEW-INSTALL-STABLE.apk
             stable-release-report.json
           if-no-files-found: error
+
