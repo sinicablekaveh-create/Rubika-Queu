@@ -51,6 +51,17 @@ public class HooshikaInboxPayloadTest {
         assertFalse(authorized.getJSONObject(0).has("queueStatus"));
         assertEquals(1,merged.length());
     }
+    @Test public void publicGroupAndChannelSameUrlAreOneReviewDestination() throws Exception {
+        JSONArray batch=HooshikaInboxPayload.decode(payload(
+            "[{\"kind\":\"public_group\",\"url\":\"https://rubika.ir/electric_group\"},"
+          + "{\"kind\":\"public_channel\",\"url\":\"https://rubika.ir/electric_group\"}]"));
+        assertEquals(1,batch.length());
+        JSONArray saved=HooshikaInboxPayload.decode(payload(
+            "[{\"kind\":\"public_group\",\"url\":\"https://rubika.ir/electric_group\"}]"));
+        JSONArray repeated=HooshikaInboxPayload.decode(payload(
+            "[{\"kind\":\"public_channel\",\"url\":\"https://rubika.ir/electric_group\"}]"));
+        assertEquals(1,HooshikaInboxPayload.merge(saved,repeated).length());
+    }
     @Test public void enforcesPayloadCountAndMergesWithoutLosingInbox() throws Exception {
         StringBuilder b=new StringBuilder("[");
         for(int i=0;i<41;i++){if(i>0)b.append(",");b.append("{\"kind\":\"business_contact\",\"phone\":\"0912").append(i).append("\"}");}
