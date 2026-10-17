@@ -1,4 +1,5 @@
 name: Publish pinned rubika APK v1.4.0-sidecar-preview-20261017
+# Retry once after the main APK CI jobs completed.
 on:
   push:
     branches: [main]
