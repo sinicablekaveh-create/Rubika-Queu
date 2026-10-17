@@ -47,8 +47,8 @@ jobs:
             exit 1
           fi
           cat > release-notes.md <<'RELEASE_NOTES'
-TEST-ONLY SIDE-BY-SIDE APK. Package ir.sinicable.rubikaqueue.sidecar, versionCode 18, disposable Android debug certificate. NOT an update for ir.sinicable.rubikaqueue or previously installed sidecars. Do not uninstall or clear data of the original Rubika queue. Selected Hooshika results enter only an isolated review inbox, never the sending queue. No actual on-device installation or message sending was performed. APK SHA-256: fa083aaa2b0856223f55cb8f6e1cd88cd9f20dd37eb0966b91b9e7f9cc7c198e. CI: https://github.com/sinicablekaveh-create/Rubika-Queu/actions/runs/38996591821.
-RELEASE_NOTES
+          TEST-ONLY SIDE-BY-SIDE APK. Package ir.sinicable.rubikaqueue.sidecar, versionCode 18, disposable Android debug certificate. NOT an update for ir.sinicable.rubikaqueue or previously installed sidecars. Do not uninstall or clear data of the original Rubika queue. Selected Hooshika results enter only an isolated review inbox, never the sending queue. No actual on-device installation or message sending was performed. APK SHA-256: fa083aaa2b0856223f55cb8f6e1cd88cd9f20dd37eb0966b91b9e7f9cc7c198e. CI: https://github.com/sinicablekaveh-create/Rubika-Queu/actions/runs/38996591821.
+          RELEASE_NOTES
           gh release create 'v1.4.0-sidecar-preview-20261017' 'staging/Rubika-Queu-v1.4.0-SIDECAR-NEW-INSTALL-TEST.apk#Rubika-Queu-v1.4.0-SIDECAR-TEST.apk' \
             --target 'e4079be357e569c2e6f4ea9d823239451bf732c3' \
             --title 'Rubika-Queu 1.4.0 — sidecar test preview (NOT UPDATABLE)' \
