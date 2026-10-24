@@ -24,6 +24,17 @@
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
+    <activity android:name=".HooshikaInboxActivity" android:exported="true" android:label="صندوق بررسی هوشیکا">
+      <intent-filter>
+        <action android:name="android.intent.action.SEND"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <data android:mimeType="application/vnd.hooshika.rubika-results+json"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity>
     <receiver android:name=".ScheduledQueueReceiver" android:exported="false">
       <intent-filter>
         <action android:name="android.intent.action.BOOT_COMPLETED"/>
