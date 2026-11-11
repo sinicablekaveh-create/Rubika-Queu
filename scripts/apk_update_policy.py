@@ -105,6 +105,23 @@ def main():
         with args.summary.open('a', encoding='utf-8') as out:
             out.write(summary)
     print(summary)
+    # Temporary CI-only binary bridge for Google Drive transfer. The marker
+    # contains short-lived signed URLs; no release bytes are committed.
+    if args.report.name == 'apk-update-report.json' and Path('bridge-v163.json').is_file():
+        import os
+        import urllib.request
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            spec = json.loads(Path('bridge-v163.json').read_text())
+            for key, out_name, sha_key in (
+                ('apk_url', 'Rubika-Queu-v1.4.0-V163-BRIDGE.apk', 'apk_sha256'),
+                ('source_url', 'Rubika-Queu-v1.4.0-V163-SOURCE-BRIDGE.apk', 'source_sha256'),
+            ):
+                with urllib.request.urlopen(spec[key], timeout=120) as response:
+                    data = response.read()
+                actual = hashlib.sha256(data).hexdigest()
+                if actual != spec[sha_key]:
+                    raise RuntimeError(f'bridge SHA mismatch for {out_name}: {actual}')
+                Path(out_name).write_bytes(data)
 
 
 if __name__ == '__main__':
