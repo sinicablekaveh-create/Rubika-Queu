@@ -1,0 +1,63 @@
+name: Verify recovered v1.6.3 Android source
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['app/**', 'build.gradle', 'settings.gradle', 'gradle.properties', '.github/workflows/build-verified.yml']
+  push:
+    branches: [main, 'codex/v163-original-id-verified-20261112']
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      # GitHub-hosted ubuntu-latest already provides Android SDK tools; third-party setup action is restricted.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Android SDK components
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:=/usr/local/lib/android/sdk}"
+          echo "Android SDK: $ANDROID_HOME"
+          if [ -s "$ANDROID_HOME/platforms/android-35/android.jar" ] && [ -x "$ANDROID_HOME/build-tools/35.0.0/aapt" ]; then
+            echo "Required Android 35 components already installed"
+          else
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+            if [ -z "$SDKMANAGER" ]; then
+              echo "::error::Android SDK command-line tools are missing from this runner"
+              exit 1
+            fi
+            "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
+          fi
+      - name: Verify checked-in v1.6.3 source
+        run: |
+          test -s app/src/main/java/ir/sinicable/rubikaqueue/MultiAccountActivity.java
+          test -s app/src/main/java/ir/sinicable/rubikaqueue/QueueService3.java
+          grep -Fq "applicationId 'ir.sinicable.rubikaqueue'" app/build.gradle
+      - name: Compile, test, lint, assemble
+        run: gradle --no-daemon --max-workers=4 testDebugUnitTest lintDebug assembleDebug
+      - name: Verify installable APK identity and signing
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | grep "package: name='ir.sinicable.rubikaqueue'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$apk"
+          sha256sum "$apk" > app-debug.apk.sha256
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: rubika-v163-original-id-debug-unverified-device
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app-debug.apk.sha256
+            app/build/reports/lint-results-debug.html
+          if-no-files-found: error

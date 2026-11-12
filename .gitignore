@@ -4,3 +4,14 @@ signing/*.jks
 **/build/
 local.properties
 .idea/
+
+# Recovered source hygiene
+**/__pycache__/
+*.pyc
+.local-build/
+*.apk
+*.idsig
+*.keystore
+*.pem
+*.key
+*.env
