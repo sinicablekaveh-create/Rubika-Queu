@@ -11,10 +11,9 @@ on:
         options:
           - test
           - stable
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, edited]
-  push:
-    branches: [main]
+  # Legacy archive reconstruction only: use manual dispatch for v1.4 build investigations.
+  # For checked-in v1.6.3 source, .github/workflows/build-verified.yml is authoritative.
+  # Auto PR/push triggers are intentionally retired to avoid overwriting checked-in source.
 
 permissions:
   contents: read

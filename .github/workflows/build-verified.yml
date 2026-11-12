@@ -4,7 +4,7 @@ on:
   pull_request:
     paths: ['app/**', 'build.gradle', 'settings.gradle', 'gradle.properties', '.github/workflows/build-verified.yml']
   push:
-    branches: ['codex/v163-recovered-triple-queue']
+    branches: [main, 'codex/v163-original-id-verified-20261112']
 permissions:
   contents: read
 jobs:
@@ -16,7 +16,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # GitHub-hosted ubuntu-latest already provides Android SDK tools; third-party setup action is restricted.
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
