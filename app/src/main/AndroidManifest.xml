@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ <queries>
+  <package android:name="app.rbmain.a"/>
+ </queries>
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
@@ -8,31 +11,27 @@
   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
   <application
-      android:label="صف پیام روبیکا • آزمایشی"
+      android:label="سه صف روبیکا"
       android:icon="@drawable/icon"
       android:theme="@style/AppTheme"
       android:supportsRtl="true"
       android:allowBackup="false"
       android:usesCleartextTraffic="false">
     <activity android:name=".OfficialBotActivity" android:exported="false"/>
-    <activity android:name=".AiDiscoveryActivity" android:exported="false"/>
-    <activity android:name=".AiAssistantActivity" android:exported="false"/>
-    <activity android:name=".DevelopmentReportActivity" android:exported="false"/>
-    <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:configChanges="orientation|screenSize|keyboardHidden">
+    <activity android:name=".MultiAccountActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
+    <activity android:name=".AiAssistantActivity" android:exported="false"/>
+    <activity android:name=".DevelopmentReportActivity" android:exported="false"/>
+    <activity android:name=".MainActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="orientation|screenSize|keyboardHidden"/>
     <activity android:name=".HooshikaInboxActivity" android:exported="true" android:label="صندوق بررسی هوشیکا">
       <intent-filter>
         <action android:name="android.intent.action.SEND"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <data android:mimeType="application/vnd.hooshika.rubika-results+json"/>
-      </intent-filter>
-      <intent-filter>
-        <action android:name="android.intent.action.MAIN"/>
-        <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
     <receiver android:name=".ScheduledQueueReceiver" android:exported="false">
@@ -43,6 +42,8 @@
       </intent-filter>
     </receiver>
     <service android:name=".QueueService" android:exported="false" android:foregroundServiceType="dataSync"/>
+    <service android:name=".QueueService2" android:exported="false" android:foregroundServiceType="dataSync"/>
+    <service android:name=".QueueService3" android:exported="false" android:foregroundServiceType="dataSync"/>
     <service android:name=".DiscoveryService" android:exported="false" android:foregroundServiceType="dataSync"/>
   </application>
 </manifest>

@@ -1,0 +1,81 @@
+PASS Persian digits
+PASS Arabic digits
+PASS International formatting
+PASS International 00 prefix
+PASS Excel scientific notation
+PASS Fraction rejected
+PASS Unsupported country rejected
+PASS Short number rejected
+PASS Mixed Excel filtering and first sheet order
+PASS Persian names and source row retained
+PASS Shared strings
+PASS 1000 rows accepted
+PASS 1001 unique rows rejected without truncation
+PASS External XML entities blocked
+PASS Key derivation matches Rubpy
+PASS Auth encoding matches Rubpy
+PASS AES wire bytes match Rubpy
+PASS AES response Unicode round-trip
+PASS RSA request signatures
+PASS RSA login auth decryption
+PASS Foreign endpoint rejected
+PASS Cleartext endpoint rejected
+PASS New queue starts with first record
+PASS Successful record excluded on resume
+PASS Crash during sending blocks automatic retry
+PASS Reviewed uncertainty remains excluded
+PASS API envelope signature addAddressBook
+PASS API envelope signature getUserInfo
+PASS Recipient resolution verifies phone and ID
+PASS API envelope signature addAddressBook
+PASS API envelope signature getUserInfo
+PASS Mismatched recipient stops before send
+PASS API envelope signature sendMessage
+PASS Stable message request id
+PASS Message ID retained when supplied by server
+PASS Rate limit stops with no automatic retry
+PASS Regression: singular message_update acknowledgement must not stop queue
+PASS Explicit server OK without optional receipt is accepted without invented ID
+PASS Server acceptance has a distinct report status
+PASS Accepted record is never resent after restart; next recipient remains available
+PASS Accepted status is reported as acceptance rather than rejection
+PASS Multiple updates select only the matching recipient and request
+PASS Mismatched request ID is not used as a receipt
+PASS JSON null is not a fake receipt ID
+PASS Old chat and reply message IDs are not mistaken for sent-message receipt
+PASS Explicit method error is not promoted to server acceptance
+PASS Network timeout remains uncertain rather than successful
+PASS Timeout never triggers an automatic duplicate-send attempt
+PASS User-observed old send is recorded without fabricating server receipt or send time
+PASS Reviewed old message excluded from resumed queue
+PASS Already reviewed item cannot be changed by a stale dialog
+PASS Version 0.1 skipped-unknown reports can be corrected individually
+PASS Skip without confirmation neither claims success nor resends
+ALL 53 CHECKS PASSED; no real accounts or messages used.
+
+PASS Duplicate published group links normalized
+PASS Published plus and encoded-plus invitation links normalize without losing the hash prefix
+PASS HTTP 200 unavailable page is not reported as a checked public feed
+PASS Public business contact cue and Persian digits accepted
+PASS Unlabelled member number is not a business lead
+PASS Public link and user's private group discovered separately
+PASS Public phone deduplicated across sources
+PASS No private member or user-profile phone extracted
+PASS Discovery does not send, join, enumerate members or inspect user profiles
+PASS Refreshing preserves results without duplicate rows
+PASS Refresh updates last-seen while retaining first-seen
+PASS Verified group preview bridges separate GUID and link rows while preserving the first observation
+PASS Account chat rate limit stops discovery before further queries or web requests
+PASS Group-only option collects no phone numbers
+PASS Contact-only option does not inspect own groups
+PASS Private channel description never used for phone extraction
+PASS Stopped discovery starts no new network requests
+PASS Sending and research cannot run simultaneously
+PASS Unrelated service cannot release sending lock
+PASS Test messages are blocked while researching
+PASS Selected group queue deduplicates targets and remains separate from research
+PASS Group sending checks membership and send access
+PASS Not-member group cannot be sent to
+PASS Actual XLSX workbook generated
+PASS Exported public contact sheet reimports as literal text without formula execution
+ALL 25 DISCOVERY CHECKS PASSED; no live messages used.

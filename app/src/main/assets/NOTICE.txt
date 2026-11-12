@@ -1,0 +1,13 @@
+# Third-party attribution
+
+The Rubika personal-account protocol and cryptographic interoperability code
+was adapted from Rubpy 7.3.5 by Shayan Heidari and contributors, GPL-3.0.
+
+- Upstream: https://github.com/shayanheidari01/rubika
+- Distribution: https://pypi.org/project/rubpy/7.3.5/
+- Reference crypto implementation: vendor/rubpy_crypto.py
+- Full license: LICENSE
+
+This project is provided under GPL-3.0. This is an unofficial personal test
+client, not affiliated with or endorsed by Rubika. Android build tooling and
+Java are separate build dependencies; they are not bundled in the source ZIP.

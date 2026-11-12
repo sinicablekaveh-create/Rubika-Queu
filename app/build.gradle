@@ -13,8 +13,8 @@ android {
         applicationId 'ir.sinicable.rubikaqueue'
         minSdk 26
         targetSdk 34
-        versionCode 18
-        versionName '1.4.0-new-signing-track'
+        versionCode 34
+        versionName '1.6.3-queue-deep-reliability'
     }
 
     signingConfigs {
@@ -29,10 +29,9 @@ android {
 
     buildTypes {
         debug {
-            // Install this diagnostic build alongside the existing Rubika queue.
-            // Release identity, original namespace, and its data sandbox are untouched.
-            applicationIdSuffix '.sidecar'
-            versionNameSuffix '-sidecar-test'
+            // Debug uses the requested application ID; a different signing certificate
+            // CANNOT upgrade an existing installation with this same package ID.
+            versionNameSuffix '-debug'
             // CI debug APKs use Android's disposable per-run debug key only.
             minifyEnabled false
         }
