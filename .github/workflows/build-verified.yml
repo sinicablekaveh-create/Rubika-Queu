@@ -21,7 +21,21 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Android SDK components
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:=/usr/local/lib/android/sdk}"
+          echo "Android SDK: $ANDROID_HOME"
+          if [ -s "$ANDROID_HOME/platforms/android-35/android.jar" ] && [ -x "$ANDROID_HOME/build-tools/35.0.0/aapt" ]; then
+            echo "Required Android 35 components already installed"
+          else
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+            if [ -z "$SDKMANAGER" ]; then
+              echo "::error::Android SDK command-line tools are missing from this runner"
+              exit 1
+            fi
+            "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
+          fi
       - name: Verify checked-in v1.6.3 source
         run: |
           test -s app/src/main/java/ir/sinicable/rubikaqueue/MultiAccountActivity.java
