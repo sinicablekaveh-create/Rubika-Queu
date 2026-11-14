@@ -202,11 +202,15 @@ public class MultiAccountActivity extends Activity {
    toast("شماره موبایل ایرانی معتبر وارد کنید");
    return;
   }
-  // Do not send here: build a one-row queue and require explicit consent and START.
-  ExcelReader.Result one=new ExcelReader.Result();
-  one.entries.add(new ExcelReader.Entry(normalized,"",1));
-  a.imported=one;
-  a.fileStatus.setText("یک شماره برای حساب "+slot+" آماده است؛ پس از تأیید رضایت START را بزنید");
+  // Manual additions only prepare the draft. Actual sending always needs START
+  // and explicit consent; they never modify an existing persisted job silently.
+  if(a.imported==null)a.imported=new ExcelReader.Result();
+  for(ExcelReader.Entry row:a.imported.entries){
+   if(normalized.equals(row.phone)){toast("این شماره قبلاً در فهرست همین حساب ثبت شده");return;}
+  }
+  if(a.imported.entries.size()>=1000){toast("ظرفیت هر صف حداکثر ۱۰۰۰ گیرنده است");return;}
+  a.imported.entries.add(new ExcelReader.Entry(normalized,"",a.imported.entries.size()+1));
+  a.fileStatus.setText(a.imported.entries.size()+" گیرنده برای صف جدید حساب "+slot+" آماده است؛ START را بزنید");
   a.manualPhone.setText("");
  }
  
