@@ -4,7 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
+import javax.net.ssl.HttpsURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import org.json.JSONObject;
@@ -79,9 +79,9 @@ public final class OfficialBotApi {
                 && !"getChat".equals(method) && !"getUpdates".equals(method)) {
             throw new IllegalArgumentException("متد پشتیبانی نمی‌شود");
         }
-        HttpURLConnection con = null;
+        HttpsURLConnection con = null;
         try {
-            con = (HttpURLConnection) new URL(BASE + token + "/" + method).openConnection();
+            con = (HttpsURLConnection) new URL(BASE + token + "/" + method).openConnection();
             con.setRequestMethod("POST");
             con.setConnectTimeout(12000);
             con.setReadTimeout(20000);

@@ -2,6 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 OUT="$ROOT/.local-build"
+rm -rf "$OUT"
 SDK="$HOME/electric-connect-build/toolchain/android.jar"
 mkdir -p "$OUT"/{gen,classes,dex}
 cd "$ROOT"
@@ -12,7 +13,7 @@ from pathlib import Path
 import sys
 s=Path(sys.argv[1]).read_text(encoding='utf-8')
 s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
-            '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="ir.sinicable.rubikaqueue" android:versionCode="34" android:versionName="1.6.3-queue-deep-reliability">',1)
+            '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="ir.sinicable.rubikaqueue.cpp180" android:versionCode="40" android:versionName="2.0.0">',1)
 s=s.replace('android:name=".', 'android:name="ir.sinicable.rubikaqueue.')
 s=s.replace('صف پیام روبیکا • آزمایشی','سه صف روبیکا')
 Path(sys.argv[2]).write_text(s,encoding='utf-8')
@@ -32,7 +33,11 @@ find "$OUT/classes" -name '*.class' > "$OUT/classes.txt"
 d8 --min-api 26 --lib "$SDK" --output "$OUT/dex" @"$OUT/classes.txt"
 echo ASSEMBLE_APK
 (cd "$OUT/dex" && zip -q -j "$OUT/unsigned.apk" classes*.dex)
-zipalign -f 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"
+echo BUILD_NATIVE_CPP
+mkdir -p "$OUT/native/lib/arm64-v8a"
+clang++ -std=c++17 -O2 -fPIC -fno-exceptions -fno-rtti -nostdlib++ -shared -Wl,-z,max-page-size=16384 -I"$PREFIX/include" app/src/main/cpp/native_send_core.cpp -o "$OUT/native/lib/arm64-v8a/librubikasendcore.so"
+(cd "$OUT/native" && zip -q -r "$OUT/unsigned.apk" lib)
+zipalign -f -P 16 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"
 KEYDIR="$HOME/.rubika-group-fix"
 mkdir -p "$KEYDIR"
 chmod 700 "$KEYDIR"
@@ -46,16 +51,14 @@ if [ ! -s "$KEY" ]; then
     -dname "CN=Rubika Queue Fix, OU=Android, O=Sinicable Kaveh, C=IR" \
     -keyalg RSA -keysize 3072 -validity 3650 >/dev/null
 fi
-DEST="/storage/emulated/0/Download/Rubika-Triple-Queue-v1.6.3-ORIGINAL-ID-DEBUG.apk"
+DEST="/storage/emulated/0/Download/Rubika-Triple-Queue-v2.0.0-FINAL-CPP-DEBUG.apk"
 echo SIGN_APK
 apksigner sign --ks "$KEY" --ks-key-alias rubikafix \
     --ks-pass "file:$PASS" --out "$DEST" "$OUT/aligned.apk"
 apksigner verify --verbose "$DEST"
 echo ARCHIVE_SOURCE
-cd "$ROOT"
-zip -q -r /storage/emulated/0/Download/Rubika-Triple-Queue-v1.6.3-ORIGINAL-ID-SOURCE.zip \
-  app scripts overrides patches tests build-fixed-apk.sh README-FIXED-FA.md
+python3 scripts/package_v2_release.py "$ROOT" "$DEST"   /storage/emulated/0/Download/Rubika-Triple-Queue-v2.0.0-FINAL-CPP-SOURCE.zip
 echo VERIFY_FILES
-ls -lh "$DEST" /storage/emulated/0/Download/Rubika-Triple-Queue-v1.6.3-ORIGINAL-ID-SOURCE.zip
+ls -lh "$DEST" /storage/emulated/0/Download/Rubika-Triple-Queue-v2.0.0-FINAL-CPP-SOURCE.zip
 sha256sum "$DEST"
 echo BUILD_COMPLETE

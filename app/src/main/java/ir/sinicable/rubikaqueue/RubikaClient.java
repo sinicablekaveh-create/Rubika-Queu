@@ -72,7 +72,7 @@ public class RubikaClient {
    try{
     JSONObject response=transport.exchange(endpoint,request);
     if(response.has("data_enc"))response=new JSONObject(CryptoCore.decrypt(response.getString("data_enc"),auth));
-    if(!response.optString("status").equals("OK")||!response.optString("status_det").equals("OK")){
+    if(!"OK".equals(response.optString("status"))||(!response.optString("status_det", "").isEmpty()&&!"OK".equals(response.optString("status_det")))){
      String detail=response.optString("status_det","");
      if(detail.isEmpty()||"OK".equals(detail))detail=response.optString("error_code","");
      if(detail.isEmpty())detail=response.optString("error","");
@@ -97,7 +97,8 @@ public class RubikaClient {
   if(code==null||!code.matches("[0-9]{4,10}")||hash==null||hash.trim().isEmpty())
    throw new IllegalArgumentException("کد ورود یا شناسه تأیید معتبر نیست");
   KeyPair keys=CryptoCore.generate();JSONObject r=call("signIn",obj("phone_code",code,"phone_number",phone,"phone_code_hash",hash,"public_key",CryptoCore.publicWire(keys.getPublic())),true);
-  if(!r.optString("status").equals("OK"))throw new ApiError(safeCode(r.optString("status","SIGN_IN_FAILED")));
+  String innerStatus=r.optString("status","");
+  if(!innerStatus.isEmpty()&&!"OK".equals(innerStatus))throw new ApiError(safeCode(innerStatus));
   String a=CryptoCore.unwrap(r.getString("auth"),keys.getPrivate());if(a.length()!=32)throw new IOException("پاسخ ورود نامعتبر");
   JSONObject user=r.getJSONObject("user");String g=user.getString("user_guid");
   auth=a;privateKey=keys.getPrivate();guid=g;return r;
@@ -186,8 +187,9 @@ public class RubikaClient {
   if(cleanText.isEmpty()||cleanText.length()>4200)
    throw new IllegalArgumentException("متن پیام خالی یا بیش از حد مجاز است");
   if(!validMessageRnd(randomId))throw new IllegalArgumentException("شناسه یکتای پیام معتبر نیست");
+  NativeSendCore.requireValid(to,cleanText,randomId);
   JSONObject r=call("sendMessage",obj("object_guid",to,"text",cleanText,"rnd",randomId),false);
-  // call() has already verified BOTH status=OK and status_det=OK.
+  // call() verified status=OK and any explicitly provided status_det.
   // An absent optional message ID must not turn this acknowledgement into a failure.
   // Empty string means server-accepted without a receipt ID, not delivery/read confirmation.
   return SendResponse.messageId(r,to,randomId);

@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.18)
+project(rubika_queue_native LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_library(rubikasendcore SHARED native_send_core.cpp)
+target_compile_options(rubikasendcore PRIVATE -fvisibility=hidden -fno-exceptions -fno-rtti)

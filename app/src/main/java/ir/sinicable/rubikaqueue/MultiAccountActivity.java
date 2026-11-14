@@ -24,7 +24,7 @@ public class MultiAccountActivity extends Activity {
  static final int NOTIFY_REQ=41;
  static class Panel {
   int slot; RubikaClient client; String codeHash=""; ExcelReader.Result imported; boolean busy=false;
-  EditText phone,password,code,message,interval;
+  EditText phone,password,code,message,interval,manualPhone;
   Uri selectedPhoto; ImageView photoPreview; TextView photoStatus; CheckBox consent;
   TextView accountStatus,fileStatus,queueStatus;
   Button sendCode,login,start,stop,logout;
@@ -78,12 +78,13 @@ public class MultiAccountActivity extends Activity {
   root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
   root.setPadding(dp(16),dp(14),dp(16),dp(26));scroll.addView(root);setContentView(scroll);
 
-  label(root,"۳ حساب روبیکا • ۳ صف همزمان",27,true);
+  label(root,"روبیکا • نسخه ۲ نهایی | C++",27,true);
   label(root,"هر حساب نشست، Excel، متن، فاصله، retry و صف مستقل دارد. محدودیت سرور هر حساب رعایت می‌شود.",14,false);
 
   LinearLayout master=card("کنترل همزمان");
   button(master,"شروع / ادامه هر سه صف ذخیره‌شده",this::startAllSaved);
   button(master,"توقف هر سه صف",this::stopAll);
+  button(master,"باز کردن وب رسمی روبیکا (ورود دستی)",()->{try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://web.rubika.ir/")));}catch(Exception e){toast("مرورگر قابل دسترس نیست");}});
   button(master,"وضعیت اعلان و باتری / تنظیمات پایداری",this::showBackgroundReliability);
   label(master,"شروع همزمان فقط صف‌هایی را اجرا می‌کند که قبلاً برای همان حساب ساخته و ذخیره شده‌اند.",13,false);
 
@@ -103,11 +104,14 @@ public class MultiAccountActivity extends Activity {
 
   label(c,"صف مستقل حساب "+slot,17,true);
   button(c,"انتخاب Excel یا CSV حساب "+slot,()->pickExcel(slot));
-  a.fileStatus=label(c,"هنوز Excel برای این حساب انتخاب نشده",13,false);
+  a.manualPhone=input(c,"یا یک شماره گیرنده مجاز: 09…",InputType.TYPE_CLASS_PHONE);
+  a.manualPhone.setTextDirection(View.TEXT_DIRECTION_LTR);
+  button(c,"افزودن یک شماره به صف این حساب",()->addOneRecipient(slot));
+  a.fileStatus=label(c,"هنوز گیرنده‌ای برای این حساب انتخاب نشده",13,false);
   a.message=input(c,"متن پیام حساب "+slot,InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);
   a.message.setMinLines(3);a.message.setGravity(Gravity.TOP|Gravity.RIGHT);
   a.message.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(4200)});
-  label(c,"حالت پیام: متن / تصویر / متن همراه تصویر",13,false);
+  label(c,"ارسال متن فعال است؛ عکس فقط پیش‌نمایش دارد و ارسال آن غیرفعال است.",13,false);
   button(c,"انتخاب عکس حساب "+slot,()->pickPhoto(slot));
   a.photoStatus=label(c,"تصویری انتخاب نشده است",13,false);
   a.photoPreview=new ImageView(this);a.photoPreview.setVisibility(View.GONE);
@@ -159,7 +163,7 @@ public class MultiAccountActivity extends Activity {
    JSONObject r=c.sendCode(number,pass);
    String status=r.optString("status");
    if("SendPassKey".equals(status)){a.client=c;return "رمز دومرحله‌ای را وارد کنید و دریافت کد را دوباره بزنید";}
-   if(!"OK".equals(status)||!r.has("phone_code_hash"))throw new RubikaClient.ApiError(RubikaClient.safeCode(status));
+   if((!status.isEmpty()&&!"OK".equals(status))||!r.has("phone_code_hash"))throw new RubikaClient.ApiError(RubikaClient.safeCode(status.isEmpty()?"MISSING_CODE_HASH":status));
    a.client=c;a.codeHash=r.getString("phone_code_hash");
    return "کد ورود حساب "+slot+" ارسال شد";
   });
@@ -187,6 +191,25 @@ public class MultiAccountActivity extends Activity {
       .show();
  }
 
+ void addOneRecipient(int slot){
+  Panel a=p[slot];
+  if(a.busy||AccountSlots.running(slot)){
+   toast("ابتدا عملیات جاری یا صف این حساب را متوقف کنید");
+   return;
+  }
+  String normalized=Phones.normalize(a.manualPhone.getText().toString());
+  if(normalized.isEmpty()){
+   toast("شماره موبایل ایرانی معتبر وارد کنید");
+   return;
+  }
+  // Do not send here: build a one-row queue and require explicit consent and START.
+  ExcelReader.Result one=new ExcelReader.Result();
+  one.entries.add(new ExcelReader.Entry(normalized,"",1));
+  a.imported=one;
+  a.fileStatus.setText("یک شماره برای حساب "+slot+" آماده است؛ پس از تأیید رضایت START را بزنید");
+  a.manualPhone.setText("");
+ }
+ 
  void pickExcel(int slot){
   if(AccountSlots.running(slot)){toast("ابتدا صف حساب "+slot+" را متوقف کنید");return;}
   Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("*/*");

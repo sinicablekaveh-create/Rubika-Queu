@@ -11,12 +11,13 @@
   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
   <application
-      android:label="سه صف روبیکا"
+      android:label="روبیکا سه صف ۲ • C++"
       android:icon="@drawable/icon"
       android:theme="@style/AppTheme"
       android:supportsRtl="true"
       android:allowBackup="false"
-      android:usesCleartextTraffic="false">
+      android:usesCleartextTraffic="false"
+      android:networkSecurityConfig="@xml/network_security_config">
     <activity android:name=".OfficialBotActivity" android:exported="false"/>
     <activity android:name=".MultiAccountActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
       <intent-filter>
