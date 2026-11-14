@@ -22,6 +22,9 @@ public class MultiAccountActivity extends Activity {
  static final int PICK_BASE=210;
  static final int PICK_PHOTO_BASE=310;
  static final int NOTIFY_REQ=41;
+ static final int REPORT_EXPORT_REQ=1101;
+ static final int CSV_TEMPLATE_EXPORT_REQ=1102;
+ String exportText="";
  static class Panel {
   int slot; RubikaClient client; String codeHash=""; ExcelReader.Result imported; boolean busy=false;
   EditText phone,password,code,message,interval,manualPhone;
@@ -49,7 +52,8 @@ public class MultiAccountActivity extends Activity {
  @Override protected void onResume(){
   super.onResume();
   ScheduleManager.rearm(this);
-  handler.postDelayed(this::resumeSavedQueues,400);
+  // V3 requires a fresh, explicit user checkbox and Start after reopening the UI.
+  // Saved queue data remains intact for manual resume.
  }
  @Override protected void onDestroy(){handler.removeCallbacks(refresh);super.onDestroy();}
 
@@ -78,7 +82,7 @@ public class MultiAccountActivity extends Activity {
   root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
   root.setPadding(dp(16),dp(14),dp(16),dp(26));scroll.addView(root);setContentView(scroll);
 
-  label(root,"روبیکا • نسخه ۲ نهایی | C++",27,true);
+  label(root,"روبیکا • نسخه ۳ | C++ / HTTPS",27,true);
   label(root,"هر حساب نشست، Excel، متن، فاصله، retry و صف مستقل دارد. محدودیت سرور هر حساب رعایت می‌شود.",14,false);
 
   LinearLayout master=card("کنترل همزمان");
@@ -86,6 +90,8 @@ public class MultiAccountActivity extends Activity {
   button(master,"توقف هر سه صف",this::stopAll);
   button(master,"باز کردن وب رسمی روبیکا (ورود دستی)",()->{try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://web.rubika.ir/")));}catch(Exception e){toast("مرورگر قابل دسترس نیست");}});
   button(master,"وضعیت اعلان و باتری / تنظیمات پایداری",this::showBackgroundReliability);
+  button(master,"خروجی گزارش فنی بدون اطلاعات مخاطبان",this::exportTechnicalReport);
+  button(master,"ساخت قالب CSV برای مخاطبان",this::exportCsvTemplate);
   label(master,"شروع همزمان فقط صف‌هایی را اجرا می‌کند که قبلاً برای همان حساب ساخته و ذخیره شده‌اند.",13,false);
 
   for(int slot=1;slot<=3;slot++)buildPanel(slot);
@@ -118,11 +124,17 @@ public class MultiAccountActivity extends Activity {
   a.photoPreview.setAdjustViewBounds(true);a.photoPreview.setMaxHeight(dp(200));c.addView(a.photoPreview);
   button(c,"حذف تصویر انتخابی",()->clearPhoto(slot));
   button(c,"پیش‌نمایش گیرندگان",()->previewRecipients(slot));
-  a.consent=new CheckBox(this);a.consent.setText("تأیید می‌کنم همه گیرندگان این صف قبلاً برای دریافت پیام رضایت داده‌اند.");
+  a.consent=new CheckBox(this);
+  a.consent.setText("کنترل رضایت گیرنده: تأیید می‌کنم همه گیرندگان این فهرست، قبلاً برای دریافت پیام رضایت داده‌اند.");
+  a.consent.setTextSize(15);
+  a.consent.setPadding(dp(10),dp(7),dp(10),dp(7));
+  a.consent.setChecked(false);
   c.addView(a.consent);
   a.interval=input(c,"فاصله ارسال؛ ۳۰ تا ۳۶۰۰ ثانیه",InputType.TYPE_CLASS_NUMBER);
   a.interval.setText("30");a.interval.setTextDirection(View.TEXT_DIRECTION_LTR);
   a.start=button(c,"ثبت و شروع / ادامه صف حساب "+slot,()->startSlot(slot));
+  a.start.setEnabled(false);
+  a.consent.setOnCheckedChangeListener((cb,checked)->refreshSlot(slot));
   a.stop=button(c,"توقف صف حساب "+slot,()->stopSlot(slot));
   button(c,"مکث صف حساب "+slot,()->pauseSlot(slot));
   button(c,"ادامه صف ذخیره‌شده حساب "+slot,()->startSlot(slot));
@@ -210,7 +222,8 @@ public class MultiAccountActivity extends Activity {
   }
   if(a.imported.entries.size()>=1000){toast("ظرفیت هر صف حداکثر ۱۰۰۰ گیرنده است");return;}
   a.imported.entries.add(new ExcelReader.Entry(normalized,"",a.imported.entries.size()+1));
-  a.fileStatus.setText(a.imported.entries.size()+" گیرنده برای صف جدید حساب "+slot+" آماده است؛ START را بزنید");
+  a.consent.setChecked(false);
+  a.fileStatus.setText(a.imported.entries.size()+" گیرنده برای صف جدید حساب "+slot+" آماده است؛ برای شروع، رضایت را دوباره تیک بزنید");
   a.manualPhone.setText("");
  }
  
@@ -223,6 +236,16 @@ public class MultiAccountActivity extends Activity {
 
  @Override protected void onActivityResult(int req,int result,Intent data){
   super.onActivityResult(req,result,data);
+  if(req==REPORT_EXPORT_REQ||req==CSV_TEMPLATE_EXPORT_REQ){
+   if(result!=RESULT_OK||data==null||data.getData()==null)return;
+   try(OutputStream out=getContentResolver().openOutputStream(data.getData())){
+    if(out==null)throw new IOException("مسیر ذخیره قابل نوشتن نیست");
+    out.write(exportText.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    toast("فایل ذخیره شد");
+   }catch(Exception e){toast("خطا در ذخیره فایل: "+MainActivity.error(e));}
+   finally{exportText="";}
+   return;
+  }
   if(req>=PICK_PHOTO_BASE+1&&req<=PICK_PHOTO_BASE+3){
    int photoSlot=req-PICK_PHOTO_BASE;
    if(result==RESULT_OK&&data!=null&&data.getData()!=null)acceptPhoto(photoSlot,data);
@@ -240,10 +263,63 @@ public class MultiAccountActivity extends Activity {
    }
    try{
     ExcelReader.Result r=ExcelReader.read(f);p[slot].imported=r;
-    runOnUiThread(()->p[slot].fileStatus.setText("شماره یکتا: "+r.entries.size()+" | تکراری: "+r.duplicates+" | نامعتبر: "+r.invalid));
+    runOnUiThread(()->{
+     p[slot].consent.setChecked(false);
+     p[slot].fileStatus.setText("شماره یکتا: "+r.entries.size()+" | تکراری: "+r.duplicates+" | نامعتبر: "+r.invalid+" | تأیید رضایت را تیک بزنید");
+    });
     return "Excel حساب "+slot+" آماده شد";
    }finally{f.delete();}
   });
+ }
+
+ void exportTechnicalReport(){
+  try {
+   StringBuilder report=new StringBuilder();
+   report.append("Rubika Triple Queue v3.0.0 / privacy-safe diagnostics\n");
+   report.append("Android API: ").append(Build.VERSION.SDK_INT).append("\n");
+   report.append("Notification permission: ").append(notificationsAllowed()).append("\n");
+   report.append("Battery optimization exemption: ").append(batteryExempt()).append("\n");
+   for(int slot=1;slot<=3;slot++){
+    JSONObject job=JobStore.load(this,slot);
+    report.append("\nAccount slot: ").append(slot).append("\n");
+    report.append("Queue running: ").append(AccountSlots.running(slot)).append("\n");
+    report.append("Waiting for re-authentication: ").append(AccountSlots.waitingForAuth(slot)).append("\n");
+    if(job==null){report.append("Queue: none\n");continue;}
+    org.json.JSONArray rows=job.optJSONArray("recipients");
+    int pending=0,inflight=0,accepted=0,registered=0,uncertain=0,skipped=0;
+    if(rows!=null)for(int i=0;i<rows.length();i++){
+     JSONObject row=rows.optJSONObject(i);
+     if(row==null)continue;
+     switch(row.optString("status","")){
+      case "pending":case "retry_wait":pending++;break;
+      case "sending":inflight++;break;
+      case "accepted":accepted++;break;
+      case "sent":case "sent_manual":registered++;break;
+      case "uncertain":uncertain++;break;
+      case "skipped":skipped++;break;
+     }
+    }
+    report.append("Queue size: ").append(rows==null?0:rows.length()).append("\n");
+    report.append("Pending: ").append(pending).append("\nIn-flight: ").append(inflight)
+     .append("\nAccepted: ").append(accepted).append("\nRegistered: ").append(registered)
+     .append("\nUncertain: ").append(uncertain).append("\nSkipped: ").append(skipped).append("\n");
+    report.append("Interval seconds: ").append(SendInterval.fromJob(job)).append("\n");
+   }
+   // Do not write phone, GUID, token, auth, text or message ID.
+   exportText=report.toString();
+   createDocument(REPORT_EXPORT_REQ,"rubika-v3-diagnostics.txt","text/plain");
+  }catch(Exception e){toast("گزارش فنی آماده نشد: "+MainActivity.error(e));}
+ }
+ void exportCsvTemplate(){
+  exportText="phone,name\n09XXXXXXXXX,Sample\n";
+  createDocument(CSV_TEMPLATE_EXPORT_REQ,"rubika-contact-template.csv","text/csv");
+ }
+ void createDocument(int req,String filename,String type){
+  Intent document=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+  document.addCategory(Intent.CATEGORY_OPENABLE);
+  document.setType(type);
+  document.putExtra(Intent.EXTRA_TITLE,filename);
+  startActivityForResult(document,req);
  }
 
  void pickPhoto(int slot){
@@ -394,6 +470,7 @@ public class MultiAccountActivity extends Activity {
     RubikaClient c=Vault.load(this,slot);JSONObject job=JobStore.load(this,slot);
     if(c==null||job==null||!JobStore.hasWork(job)||!c.guid.equals(job.optString("owner")))continue;
     if(!job.optBoolean("consented",false)||job.optString("media_type","").length()>0)continue;
+    if(p[slot]==null||!p[slot].consent.isChecked())continue;
     getSharedPreferences(AccountSlots.recoveryPrefs(slot),0).edit().putBoolean("paused",false).apply();
     startForegroundService(new Intent(this,AccountSlots.serviceClass(slot)));started++;
    }catch(Exception ignored){}
@@ -433,7 +510,8 @@ public class MultiAccountActivity extends Activity {
   boolean accountEditable=!a.busy&&(!running||waiting);
   a.phone.setEnabled(accountEditable);a.password.setEnabled(accountEditable);a.code.setEnabled(accountEditable);
   a.sendCode.setEnabled(accountEditable);a.login.setEnabled(accountEditable);a.logout.setEnabled(accountEditable&&signed);
-  a.start.setEnabled(!a.busy&&!running);a.stop.setEnabled(!a.busy&&running);
+  a.start.setEnabled(!a.busy&&!running&&a.consent.isChecked());
+  a.stop.setEnabled(!a.busy&&running);
   try{
    JSONObject job=JobStore.load(this,slot);
    String state=job==null?"صفی ذخیره نشده":JobStore.summary(job)+"\nفاصله: "+SendInterval.fromJob(job)+" ثانیه";

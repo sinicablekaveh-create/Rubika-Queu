@@ -11,7 +11,7 @@
   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
   <application
-      android:label="روبیکا سه صف ۲ • C++"
+      android:label="روبیکا سه صف ۳ • C++"
       android:icon="@drawable/icon"
       android:theme="@style/AppTheme"
       android:supportsRtl="true"

@@ -13,7 +13,7 @@ from pathlib import Path
 import sys
 s=Path(sys.argv[1]).read_text(encoding='utf-8')
 s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
-            '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="ir.sinicable.rubikaqueue.cpp180" android:versionCode="40" android:versionName="2.0.0">',1)
+            '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="ir.sinicable.rubikaqueue.cpp180" android:versionCode="50" android:versionName="3.0.0">',1)
 s=s.replace('android:name=".', 'android:name="ir.sinicable.rubikaqueue.')
 s=s.replace('صف پیام روبیکا • آزمایشی','سه صف روبیکا')
 Path(sys.argv[2]).write_text(s,encoding='utf-8')
@@ -51,14 +51,14 @@ if [ ! -s "$KEY" ]; then
     -dname "CN=Rubika Queue Fix, OU=Android, O=Sinicable Kaveh, C=IR" \
     -keyalg RSA -keysize 3072 -validity 3650 >/dev/null
 fi
-DEST="/storage/emulated/0/Download/Rubika-Triple-Queue-v2.0.0-FINAL-CPP-DEBUG.apk"
+DEST="/storage/emulated/0/Download/Rubika-Triple-Queue-v3.0.0-CPP-HTTPS.apk"
 echo SIGN_APK
 apksigner sign --ks "$KEY" --ks-key-alias rubikafix \
     --ks-pass "file:$PASS" --out "$DEST" "$OUT/aligned.apk"
 apksigner verify --verbose "$DEST"
 echo ARCHIVE_SOURCE
-python3 scripts/package_v2_release.py "$ROOT" "$DEST"   /storage/emulated/0/Download/Rubika-Triple-Queue-v2.0.0-FINAL-CPP-SOURCE.zip
+python3 scripts/package_v3_release.py "$ROOT" "$DEST"   /storage/emulated/0/Download/Rubika-Triple-Queue-v3.0.0-CPP-HTTPS-SOURCE.zip
 echo VERIFY_FILES
-ls -lh "$DEST" /storage/emulated/0/Download/Rubika-Triple-Queue-v2.0.0-FINAL-CPP-SOURCE.zip
+ls -lh "$DEST" /storage/emulated/0/Download/Rubika-Triple-Queue-v3.0.0-CPP-HTTPS-SOURCE.zip
 sha256sum "$DEST"
 echo BUILD_COMPLETE
